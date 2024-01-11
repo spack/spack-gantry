@@ -27,7 +27,13 @@ class PrometheusClient:
             max_resolution = 10_000
             # calculating the max step size to get the desired resolution
             step = math.ceil((kwargs["end"] - kwargs["start"]) / max_resolution)
-            url = f"{self.base_url}/query_range?query={query_str}&start={kwargs['start']}&end={kwargs['end']}&step={step}s"
+            url = (
+                f"{self.base_url}/query_range?"
+                f"query={query_str}&"
+                f"start={kwargs['start']}&"
+                f"end={kwargs['end']}&"
+                f"step={step}s"
+            )
             return await self._query(url)
         elif type == "single":
             url = f"{self.base_url}/query?query={query_str}&time={kwargs['time']}"

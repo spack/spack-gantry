@@ -123,7 +123,10 @@ async def fetch_job(job: dict) -> dict:
     cpu_usage = process_usage(
         await prometheus.query(
             type="range",
-            custom_query=f"rate(container_cpu_usage_seconds_total{{pod='{job['pod']}', container='build'}}[90s])",
+            custom_query=(
+                f"rate(container_cpu_usage_seconds_total{{"
+                f"pod='{job['pod']}', container='build'}}[90s])"
+            ),
             start=job["start"],
             end=job["end"],
         ),
@@ -257,6 +260,7 @@ def process_usage(res: dict, job_id: int) -> dict:
     if not res:
         # sometimes prometheus reports no data for a job if the time range is too small
         logging.error(f"lack of usage data for job {job_id}")
+        # TODO throw exception
         sys.exit()
 
     usage = [float(value) for timestamp, value in res[0]["values"]]
