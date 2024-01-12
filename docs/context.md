@@ -16,6 +16,17 @@ Due to a problems of scale and inability to quickly and correctly determine the 
 
 With this setup, we can transition to a system where build jobs will request the appropriate amount of resources, which will reduce waste and contention with other jobs within the same namespace. Additionally, by amassing a vast repository of build attributes and historical usage, we can further analyze the behavior of these jobs and perform experiments within the context of the CI. For instance, understanding why certain packages are more variable in their memory usage during compilation, or determining if there is a "sweet spot" that minimizes resource usage but leads to an optimal build time for a given configuration.
 
-## Current Handling of Resources
+A corallary to this is building a system that handles job failures with some intelligence. For instance, if a build was OOM killed, `gantry` would submit the same job and supply it with more memory. Jobs that produce errors due to other reasons would not be retried and resolved through the appropriate channels.
+
+## Current resource allocation
 
 Each build job comes with a memory and CPU request. Kubernetes will use these numbers to allocate the job onto a specific VM. No limits are sent, meaning that a compilation could crowd out other jobs and that there are no consequences for going over what they are expected to utilize.
+
+
+## Cost per job
+
+Work is being performed to determine the best way to model the cost per job and node. 
+
+**Notes**:
+- waste needs to be quantified in the cost per job
+- instance type should be controlled for, as we don't want the number of cores to be the variable in the cost function, since the performance can vary drastically
