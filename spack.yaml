@@ -7,6 +7,7 @@ spack:
   - py-flake8
   - py-black
   - py-isort
+  - py-aiosqlite
   - sqlite
   view: true
   concretizer:
