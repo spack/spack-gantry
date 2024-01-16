@@ -1,4 +1,3 @@
-import logging
 import os
 
 import aiohttp
@@ -10,11 +9,8 @@ class GitlabClient:
         self.headers = {"PRIVATE-TOKEN": os.environ["GITLAB_TOKEN"]}
 
     async def request(self, url: str, response_type: str) -> dict:
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
             async with session.get(url, headers=self.headers) as resp:
-                if resp.status != 200:
-                    logging.error(f"Gitlab query failed with status {resp.status}")
-                    return {}
                 if response_type == "json":
                     return await resp.json()
                 if response_type == "text":

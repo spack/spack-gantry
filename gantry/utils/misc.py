@@ -1,8 +1,6 @@
 def spec_variants(spec: str) -> dict:
-    """Given a spec's concrete variants, return a dict of variant name: value."""
+    """Given a spec's concrete variants, return a dict of name: value."""
     # example: +adios2~advanced_debug patches=02253c7,acb3805,b724e6a use_vtkm=on
-
-    # TODO handle errors and invalid inputs
 
     variants = {}
     spec = spec.replace("+", " +")
@@ -10,6 +8,8 @@ def spec_variants(spec: str) -> dict:
     parts = spec.split(" ")
 
     for part in parts:
+        if len(part) < 2:
+            continue
         if "=" in part:
             name, value = part.split("=")
             # multiple values
@@ -24,3 +24,14 @@ def spec_variants(spec: str) -> dict:
                 variants[part[1:]] = False
 
     return variants
+
+
+def db_insert(table, values):
+    """
+    Returns an INSERT statement given a table name and tuple of values.
+    Must provide values for all columns in the table, including the primary key.
+    """
+    return (
+        f"insert into {table} values ({','.join(['?'] * (len(values)) )})",
+        values,
+    )

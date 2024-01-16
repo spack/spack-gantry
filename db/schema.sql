@@ -1,7 +1,6 @@
 CREATE TABLE vms (
     id INTEGER PRIMARY KEY,
-    start INTEGER NOT NULL,
-    -- VM end is the max of the build end times
+    uuid TEXT NOT NULL,
     hostname TEXT NOT NULL,
     cores REAL NOT NULL,
     mem REAL NOT NULL,
@@ -12,7 +11,6 @@ CREATE TABLE vms (
 
 
 CREATE TABLE builds (
-    -- TODO do we want an entry here for if the job has been retried?
     id INTEGER PRIMARY KEY,
     pod TEXT NOT NULL UNIQUE,
     vm INTEGER NOT NULL,
@@ -20,17 +18,18 @@ CREATE TABLE builds (
     end INTEGER NOT NULL,
     job_id INTEGER NOT NULL,
     job_status TEXT NOT NULL,
+    num_retries INTEGER NOT NULL,
     ref TEXT NOT NULL,
     pkg_name TEXT NOT NULL,
     pkg_version TEXT NOT NULL,
-    pkg_variants TEXT NOT NULL, -- can be stored as JSONB in the future?
+    pkg_variants TEXT NOT NULL,
     compiler_name TEXT NOT NULL,
     compiler_version TEXT NOT NULL,
     arch TEXT NOT NULL,
     stack TEXT NOT NULL,
     build_jobs INTEGER NOT NULL,
     cpu_request REAL NOT NULL,
-    cpu_limit REAL, -- this can be null
+    cpu_limit REAL, -- this can be null becasue it's currently not set
     cpu_mean REAL NOT NULL,
     cpu_median REAL NOT NULL,
     cpu_max REAL NOT NULL,

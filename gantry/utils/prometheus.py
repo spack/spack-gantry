@@ -7,16 +7,34 @@ import aiohttp
 
 
 class PrometheusClient:
-    # TODO error handling for unexpected data
-    # todo retry mechanism for failed requests?
-
     def __init__(self):
         self.base_url = os.environ["PROMETHEUS_URL"]
         self.cookies = {"_oauth2_proxy": os.environ["PROMETHEUS_COOKIE"]}
 
     async def query(self, type: str, **kwargs) -> dict:
-        # TODO add validation for kwargs and comments
-        query_str = (
+        """
+        type: "range" or "single"
+
+        for range queries: set `start` and `end` (unix timestamps)
+        for single queries: set `time` (unix timestamp)
+
+        for custom queries: set `custom_query` (string)
+
+        for metric queries: set `query` (dict)
+            example:
+                "query": {
+                    "metric": "metric_name",
+                    "filters": {"filter1": "value1", "filter2": "value2"}
+                }
+        """
+
+        # validate that one of query or custom_query is set, but not both or neither
+        if not kwargs.get("query") and not kwargs.get("custom_query"):
+            raise ValueError("query or custom_query must be set")
+        if kwargs.get("query") and kwargs.get("custom_query"):
+            raise ValueError("query and custom_query cannot both be set")
+
+        query_str = urllib.parse.quote(
             kwargs["custom_query"]
             if kwargs.get("custom_query")
             else query_to_str(**kwargs["query"])
@@ -41,14 +59,11 @@ class PrometheusClient:
 
     async def _query(self, url: str) -> dict:
         """Query Prometheus with a query string"""
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(raise_for_status=True) as session:
             # submit cookie with request
             async with session.get(url, cookies=self.cookies) as resp:
-                if resp.status != 200:
-                    logging.error(f"Prometheus query failed with status {resp.status}")
-                    return {}
                 try:
-                    return self.process_response(await resp.json())
+                    return self.prettify_res(await resp.json())
                 except aiohttp.ContentTypeError:
                     logging.error(
                         """Prometheus query failed with unexpected response.
@@ -56,8 +71,8 @@ class PrometheusClient:
                     )
                     return {}
 
-    def process_response(self, response: dict) -> dict:
-        """Process Prometheus response into a more usable format"""
+    def prettify_res(self, response: dict) -> dict:
+        """Process Prometheus response into an arrray of dicts with {label: value}"""
         result_type = response.get("data", {}).get("resultType")
         values_dict = {
             "matrix": "values",
@@ -75,7 +90,9 @@ class PrometheusClient:
 
 
 def query_to_str(metric: str, filters: dict) -> str:
-    # TODO add a test for this
-    # expected output: metric{key1="val1", key2="val2"}
+    """
+    In: "metric", {key1: value1, key2: value2}
+    Out: "metric{key1="value1", key2="value2"}"
+    """
     filters_str = ", ".join([f'{key}="{value}"' for key, value in filters.items()])
-    return urllib.parse.quote(f"{metric}{{{filters_str}}}")
+    return f"{metric}{{{filters_str}}}"

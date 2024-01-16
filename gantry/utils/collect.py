@@ -3,22 +3,22 @@ import logging
 import math
 import re
 import statistics
-import sys
 from datetime import datetime
 
-from utils.db import SqliteClient
 from utils.gitlab import GitlabClient
-from utils.misc import spec_variants
+from utils.misc import db_insert, spec_variants
 from utils.prometheus import PrometheusClient
 
 
-async def fetch_job(job: dict) -> dict:
-    # TODO match gitlab webhook payload and process datetimes?
-    if job["build_status"] not in ("success", "failed"):
-        return
+class InvalidDataError(Exception):
+    pass
 
-    if job["build_status"] == "failed":
-        # TODO implement retry mechanism
+
+async def fetch_job(job: dict, db) -> dict:
+    gitlab = GitlabClient()
+    prometheus = PrometheusClient()
+
+    if job["build_status"] not in ("success", "failed"):
         return
 
     job_name_pattern = re.compile(r"([^/ ]+)@([^/ ]+) /([^%]+) %([^ ]+) ([^ ]+) (.+)")
@@ -27,19 +27,19 @@ async def fetch_job(job: dict) -> dict:
         # generate jobs, non build jobs, etc
         return
 
-    gitlab = GitlabClient()
-    prometheus = PrometheusClient()
-    db = SqliteClient()
-
     # check if job has already been inserted into the database
-    db.execute("select job_id from builds where job_id = ?", (job["build_id"],))
-    if db.fetchone():
-        logging.info(f"job {job['build_id']} already in database")
-        return
+    async with db.execute(
+        "select job_id from builds where job_id = ?", (job["build_id"],)
+    ) as cursor:
+        if await cursor.fetchone():
+            logging.info(f"job {job['build_id']} already in database")
+            return
 
     job_log = await gitlab.job_log(job["build_id"])
     if is_ghost(job_log):
-        db.insert("ghost_jobs", (None, job["build_id"]))
+        await db.execute(
+            ("insert into ghost_jobs (name) values (?)"), (job["build_id"],)
+        )
         return
 
     job["start"] = datetime.fromisoformat(job["build_started_at"]).timestamp()
@@ -61,10 +61,11 @@ async def fetch_job(job: dict) -> dict:
     job.update(
         {
             "pod": pod_annotations_res[0]["labels"]["pod"],
-            # TODO int? is it guaranteed to be here?
-            "build_jobs": pod_annotations_res[0]["labels"][
-                "annotation_metrics_spack_job_build_jobs"
-            ],
+            "build_jobs": int(
+                pod_annotations_res[0]["labels"][
+                    "annotation_metrics_spack_job_build_jobs"
+                ]
+            ),
             "arch": pod_annotations_res[0]["labels"][
                 "annotation_metrics_spack_job_spec_arch"
             ],
@@ -133,88 +134,98 @@ async def fetch_job(job: dict) -> dict:
         job["build_id"],
     )
 
+    if job["build_status"] == "failed":
+        oom_status = prometheus.query(
+            type="range",
+            query={
+                "metric": "kube_pod_container_status_last_terminated_reason",
+                "filters": {
+                    "container": "build",
+                    "pod": job["pod"],
+                    "reason": "OOMKilled",
+                },
+            },
+            start=job["start"],
+            end=job["end"] + 10 * 60,  # give a 10 minute buffer
+        )
+        # TODO retry the job if OOM, do not return as we still want to save the build
+        if not oom_status:
+            return
+
     # instead of needing to fetch the node where the pod ran from kube_pod_info
     # we can grab it from kube_pod_container_resource_limits
     # weirdly, it's not available in kube_pod_labels or annotations
     # https://github.com/kubernetes/kube-state-metrics/issues/1148
-    vm = await fetch_vm(job_limits_res[0]["labels"]["node"], query_time)
+    vm = await fetch_vm(job_limits_res[0]["labels"]["node"], query_time, db)
     requests = process_resources_res(job_requests_res)
     limits = process_resources_res(job_limits_res)
 
-    # TODO insert into db here
-
-    return db.insert(
-        "builds",
-        (
-            None,
-            job["pod"],
-            vm,
-            job["start"],
-            job["end"],
-            job["build_id"],
-            job["build_status"],
-            job["ref"],
-            job["pkg_name"],
-            job["pkg_version"],
-            # dict to string
-            json.dumps(job["pkg_variants"]),
-            job["compiler_name"],
-            job["compiler_version"],
-            job["arch"],
-            job["stack"],
-            job["build_jobs"],
-            requests["cpu"]["value"],
-            # currently not set as of 12-23
-            limits.get("cpu", {}).get("value"),
-            cpu_usage["mean"],
-            cpu_usage["median"],
-            cpu_usage["max"],
-            cpu_usage["min"],
-            cpu_usage["stddev"],
-            requests["memory"]["value"],
-            limits["memory"]["value"],
-            mem_usage["mean"],
-            mem_usage["median"],
-            mem_usage["max"],
-            mem_usage["min"],
-            mem_usage["stddev"],
-        ),
+    await db.execute(
+        *db_insert(
+            "builds",
+            (
+                None,
+                job["pod"],
+                vm,
+                job["start"],
+                job["end"],
+                job["build_id"],
+                job["build_status"],
+                job["retries_count"],
+                job["ref"],
+                job["pkg_name"],
+                job["pkg_version"],
+                json.dumps(job["pkg_variants"]),  # dict to string
+                job["compiler_name"],
+                job["compiler_version"],
+                job["arch"],
+                job["stack"],
+                job["build_jobs"],
+                requests["cpu"]["value"],
+                # currently not set as of 12-23
+                limits.get("cpu", {}).get("value"),
+                cpu_usage["mean"],
+                cpu_usage["median"],
+                cpu_usage["max"],
+                cpu_usage["min"],
+                cpu_usage["stddev"],
+                requests["memory"]["value"],
+                limits["memory"]["value"],
+                mem_usage["mean"],
+                mem_usage["median"],
+                mem_usage["max"],
+                mem_usage["min"],
+                mem_usage["stddev"],
+            ),
+        )
     )
 
+    # vm and build will get saved at the same time to make sure
+    # we don't accidentally commit a vm without a build
+    await db.commit()
 
-async def fetch_vm(hostname: str, query_time: float) -> dict:
+    return
+
+
+async def fetch_vm(hostname: str, query_time: float, db) -> dict:
     prometheus = PrometheusClient()
-    db = SqliteClient()
-    vm_start_res = await prometheus.query(
+    vm_info = await prometheus.query(
         type="single",
         query={
-            "metric": "kube_node_created",
+            "metric": "kube_node_info",
             "filters": {"node": hostname},
         },
         time=query_time,
     )
 
-    vm_start = float(vm_start_res[0]["values"][1])
+    vm_uuid = vm_info[0]["labels"]["system_uuid"]
 
-    db.execute(
-        "select id from vms where hostname = ? and start = ?", (hostname, vm_start)
-    )
-    vm_id = db.fetchone()
+    async with db.execute("select id from vms where uuid = ?", (vm_uuid,)) as cursor:
+        old_vm = await cursor.fetchone()
 
-    if vm_id:
-        logging.info(f"vm {hostname} already in database with id {vm_id[0]}")
-        return vm_id[0]
-
-    vm_capacity = process_resources_res(
-        await prometheus.query(
-            type="single",
-            query={
-                "metric": "kube_node_status_capacity",
-                "filters": {"node": hostname},
-            },
-            time=query_time,
-        )
-    )
+        if old_vm:
+            logging.info(f"vm {hostname} already in database with id {old_vm[0]}")
+            return old_vm[0]
 
     vm_labels = await prometheus.query(
         type="single",
@@ -225,19 +236,26 @@ async def fetch_vm(hostname: str, query_time: float) -> dict:
         time=query_time,
     )
 
-    return db.insert(
-        "vms",
-        (
-            None,
-            vm_start,
-            hostname,
-            vm_capacity["cpu"]["value"],
-            vm_capacity["memory"]["value"],
-            vm_labels[0]["labels"]["label_kubernetes_io_arch"],
-            vm_labels[0]["labels"]["label_kubernetes_io_os"],
-            vm_labels[0]["labels"]["label_node_kubernetes_io_instance_type"],
-        ),
-    )
+    async with db.execute(
+        *db_insert(
+            "vms",
+            (
+                None,
+                vm_uuid,
+                hostname,
+                float(vm_labels[0]["labels"]["label_karpenter_k8s_aws_instance_cpu"]),
+                float(
+                    vm_labels[0]["labels"]["label_karpenter_k8s_aws_instance_memory"]
+                ),
+                vm_labels[0]["labels"]["label_kubernetes_io_arch"],
+                vm_labels[0]["labels"]["label_kubernetes_io_os"],
+                vm_labels[0]["labels"]["label_node_kubernetes_io_instance_type"],
+            ),
+        )
+    ) as cursor:
+        vm_id = cursor.lastrowid
+
+    return vm_id
 
 
 def is_ghost(log):
@@ -260,14 +278,13 @@ def process_usage(res: dict, job_id: int) -> dict:
     if not res:
         # sometimes prometheus reports no data for a job if the time range is too small
         logging.error(f"lack of usage data for job {job_id}")
-        # TODO throw exception
-        sys.exit()
+        raise InvalidDataError
 
     usage = [float(value) for timestamp, value in res[0]["values"]]
 
     sum_stats = {
         "mean": statistics.fmean(usage),
-        # use pstdev because we have the whole population
+        # pstdev because we have the whole population
         "stddev": statistics.pstdev(usage),
         "max": max(usage),
         "min": min(usage),
@@ -280,6 +297,6 @@ def process_usage(res: dict, job_id: int) -> dict:
         or math.isnan(sum_stats["stddev"])
     ):
         logging.error(f"usage data is invalid for job {job_id}")
-        sys.exit()
+        raise InvalidDataError
 
     return sum_stats
