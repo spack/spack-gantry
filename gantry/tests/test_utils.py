@@ -1,6 +1,6 @@
 import pytest
 
-from gantry.utils.misc import spec_variants
+from gantry.util.misc import spec_variants
 
 # write tests for spec_variants here
 # +adios2~advanced_debug patches=02253c7,acb3805,b724e6a use_vtkm=on has to equal {}
