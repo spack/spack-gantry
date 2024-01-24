@@ -7,7 +7,12 @@ from gantry.util.gitlab import GitlabClient
 from gantry.util.prometheus import IncompleteData, PrometheusClient
 
 
-async def fetch_build(payload: dict, db: aiosqlite.Connection) -> None:
+async def fetch_build(
+    payload: dict,
+    db: aiosqlite.Connection,
+    gitlab: GitlabClient,
+    prometheus: PrometheusClient,
+) -> None:
     """
     Fetches a job's information from Prometheus and inserts it into the database.
     If there is data missing at any point, the function will still return so the webhook
@@ -20,9 +25,6 @@ async def fetch_build(payload: dict, db: aiosqlite.Connection) -> None:
 
     returns: None in order to accomodate a 200 response for the webhook.
     """
-
-    gitlab = GitlabClient()
-    prometheus = PrometheusClient()
 
     build = Build(
         status=payload["build_status"],

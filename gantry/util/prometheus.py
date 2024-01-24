@@ -1,6 +1,5 @@
 import logging
 import math
-import os
 import statistics
 import urllib.parse
 
@@ -12,9 +11,14 @@ class IncompleteData(Exception):
 
 
 class PrometheusClient:
-    def __init__(self):
-        self.base_url = os.environ["PROMETHEUS_URL"]
-        self.cookies = {"_oauth2_proxy": os.environ["PROMETHEUS_COOKIE"]}
+    def __init__(self, base_url: str, auth_cookie: str = ""):
+        # cookie will only be used if set
+        if auth_cookie:
+            self.cookies = {"_oauth2_proxy": auth_cookie}
+        else:
+            self.cookies = {}
+
+        self.base_url = base_url
 
     async def query(self, type: str, **kwargs) -> dict:
         """

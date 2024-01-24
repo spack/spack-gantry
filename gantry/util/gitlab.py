@@ -1,12 +1,10 @@
-import os
-
 import aiohttp
 
 
 class GitlabClient:
-    def __init__(self):
-        self.base_url = os.environ["GITLAB_URL"]
-        self.headers = {"PRIVATE-TOKEN": os.environ["GITLAB_API_TOKEN"]}
+    def __init__(self, base_url: str, api_token: str):
+        self.base_url = base_url
+        self.headers = {"PRIVATE-TOKEN": api_token}
 
     async def _request(self, url: str, response_type: str) -> dict | str:
         """

@@ -21,5 +21,7 @@ async def collect_job(request: web.Request) -> web.Response:
     if request.headers.get("X-Gitlab-Event") != "Job Hook":
         return web.Response(status=400, text="invalid event type")
 
-    await fetch_build(payload, request.app["db"])
+    await fetch_build(
+        payload, request.app["db"], request.app["gitlab"], request.app["prometheus"]
+    )
     return web.Response(status=200)
