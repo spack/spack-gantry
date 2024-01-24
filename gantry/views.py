@@ -3,7 +3,7 @@ import os
 
 from aiohttp import web
 
-from gantry.collection import fetch_build
+from gantry.routes.collection import fetch_build
 
 routes = web.RouteTableDef()
 

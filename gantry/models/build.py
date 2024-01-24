@@ -5,9 +5,9 @@ from datetime import datetime
 
 import aiosqlite
 
-from gantry.util.gitlab import GitlabClient
+from gantry.clients.gitlab import GitlabClient
 from gantry.util.misc import insert_dict, setattrs, spec_variants
-from gantry.util.prometheus import (
+from gantry.clients.prometheus import (
     IncompleteData,
     PrometheusClient,
     process_resources,

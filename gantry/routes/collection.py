@@ -3,8 +3,8 @@ import logging
 import aiosqlite
 
 from gantry.models import VM, Build
-from gantry.util.gitlab import GitlabClient
-from gantry.util.prometheus import IncompleteData, PrometheusClient
+from gantry.clients.gitlab import GitlabClient
+from gantry.clients.prometheus import IncompleteData, PrometheusClient
 
 
 async def fetch_build(

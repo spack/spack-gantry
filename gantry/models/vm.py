@@ -1,7 +1,7 @@
 import aiosqlite
 
 from gantry.util.misc import insert_dict, setattrs
-from gantry.util.prometheus import IncompleteData, PrometheusClient
+from gantry.clients.prometheus import IncompleteData, PrometheusClient
 
 MB_IN_BYTES = 1_000_000
 
