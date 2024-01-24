@@ -5,6 +5,7 @@ import aiosqlite
 from gantry.models import VM, Build
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import IncompleteData, PrometheusClient
+from gantry.util.spec import valid_build_name
 
 
 async def fetch_build(
@@ -39,7 +40,7 @@ async def fetch_build(
     # perform checks to see if we should collect data for this job
     if (
         build.status not in ("success",)
-        or not build.valid_name  # is not a build job
+        or not valid_build_name(build.name)  # is not a build job
         or await build.in_db(db)  # job already in the database
         or await build.is_ghost(db, gitlab)
     ):

@@ -35,19 +35,6 @@ class Build:
         self.ref = ref
 
     @property
-    def valid_name(self) -> bool:
-        """Returns True if the job is a build job, False otherwise."""
-
-        # example: plumed@2.9.0 /i4u7p6u %gcc@11.4.0
-        # arch=linux-ubuntu20.04-neoverse_v1 E4S ARM Neoverse V1
-        job_name_pattern = re.compile(
-            r"([^/ ]+)@([^/ ]+) /([^%]+) %([^ ]+) ([^ ]+) (.+)"
-        )
-        job_name_match = job_name_pattern.match(self.name)
-        # groups: 1: name, 2: version, 3: hash, 4: compiler, 5: arch, 6: stack
-        return bool(job_name_match)
-
-    @property
     def midpoint(self) -> float:
         """Returns the midpoint of the job in unix time."""
         # prometheus is not guaranteed to have data at the exact start and end times
