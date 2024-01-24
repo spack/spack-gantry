@@ -36,11 +36,15 @@ async def fetch_build(payload: dict, db: aiosqlite.Connection) -> None:
 
     # perform checks to see if we should collect data for this job
     if (
-        build.status not in ("success",)
+        build.status not in ("success", "failed")
         or not build.valid_name  # is not a build job
         or await build.in_db(db)  # job already in the database
         or await build.is_ghost(db, gitlab)
     ):
+        return
+
+    # only collect data for jobs that failed due to resource contention
+    if build.status == "failed" and not await build.is_oom(prometheus):
         return
 
     try:

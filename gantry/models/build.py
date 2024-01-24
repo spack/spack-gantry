@@ -73,6 +73,28 @@ class Build:
 
         return ghost
 
+    async def is_oom(self, prometheus: PrometheusClient) -> bool:
+        """Checks if a failed job was OOM killed."""
+        oom_status = prometheus.query(
+            type="range",
+            query={
+                "metric": "kube_pod_container_status_last_terminated_reason",
+                "filters": {
+                    "container": "build",
+                    "pod": self.pod,
+                    "reason": "OOMKilled",
+                },
+            },
+            start=self.start,
+            end=self.end + (10 * 60),  # give a 10 minute buffer
+        )
+
+        if not oom_status:
+            return False
+
+        # TODO retry job here
+        return True
+
     async def in_db(self, db: aiosqlite.Connection) -> bool:
         """Checks if the job is already in the db."""
 
