@@ -99,7 +99,7 @@ class Build:
         )
 
         if not annotations_res:
-            raise IncompleteData("missing annotations")
+            raise IncompleteData(f"missing annotations for job {self.id}")
 
         annotations = annotations_res[0]["labels"]
 
@@ -120,8 +120,7 @@ class Build:
             compiler_version=annotations[
                 "annotation_metrics_spack_job_spec_compiler_version"
             ],
-            stack="testing"
-            # stack=job_name_dict["stack"],
+            stack=annotations["annotation_metrics_spack_ci_stack_name"],
         )
 
     async def get_resources(self, prometheus: PrometheusClient):
