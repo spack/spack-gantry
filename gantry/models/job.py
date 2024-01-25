@@ -7,14 +7,14 @@ class Job:
         self,
         status: str,
         name: str,
-        id: int,
+        gl_id: int,
         start: str,
         end: str,
         ref: str,
     ):
         self.status = status
         self.name = name
-        self.id = id
+        self.gl_id = gl_id
         self.start = datetime.fromisoformat(start).timestamp()
         self.end = datetime.fromisoformat(end).timestamp()
         self.ref = ref

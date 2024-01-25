@@ -24,8 +24,8 @@ class GitlabClient:
                 if response_type == "text":
                     return await resp.text()
 
-    async def job_log(self, job_id: int) -> str:
+    async def job_log(self, gl_id: int) -> str:
         """Given a job id, returns the log from that job"""
 
-        url = f"{self.base_url}/jobs/{job_id}/trace"
+        url = f"{self.base_url}/jobs/{gl_id}/trace"
         return await self._request(url, "text")

@@ -100,10 +100,10 @@ class PrometheusClient:
             for result in response["data"]["result"]
         ]
 
-    async def get_job_annotations(self, job_id: int, time: float) -> dict:
+    async def get_job_annotations(self, gl_id: int, time: float) -> dict:
         """
         args:
-            job_id: job id
+            gl_id: gitlab job id
             time: when to query (unix timestamp)
         returns: dict of annotations
         """
@@ -112,7 +112,7 @@ class PrometheusClient:
             type="single",
             query={
                 "metric": "kube_pod_annotations",
-                "filters": {"annotation_gitlab_ci_job_id": job_id},
+                "filters": {"annotation_gitlab_ci_job_id": gl_id},
             },
             time=time,
         )
@@ -146,7 +146,6 @@ class PrometheusClient:
     async def get_job_resources(self, pod: str, time: float) -> tuple[dict, str]:
         """
         args:
-            job_id: job id
             pod: pod name
             time: when to query (unix timestamp)
         returns: dict of resources and node hostname

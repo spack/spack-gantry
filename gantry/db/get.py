@@ -13,14 +13,16 @@ async def get_node(db: aiosqlite.Connection, uuid: str) -> int | None:
     return None
 
 
-async def job_exists(db: aiosqlite.Connection, job_id: int) -> bool:
+async def job_exists(db: aiosqlite.Connection, gl_id: int) -> bool:
     """return if the job exists in the database"""
 
-    async with db.execute("select id from jobs where job_id = ?", (job_id,)) as cursor:
+    async with db.execute(
+        "select id from jobs where gitlab_id = ?", (gl_id,)
+    ) as cursor:
         if await cursor.fetchone():
             logging.warning(
                 f"""
-                job {job_id} already in database.
+                job {gl_id} already in database.
                 check why multiple requests are being sent.
                 """
             )
@@ -29,11 +31,11 @@ async def job_exists(db: aiosqlite.Connection, job_id: int) -> bool:
     return False
 
 
-async def ghost_exists(db: aiosqlite.Connection, job_id: int) -> bool:
+async def ghost_exists(db: aiosqlite.Connection, gl_id: int) -> bool:
     """return if the ghost job exists in the database"""
 
     async with db.execute(
-        "select id from ghost_jobs where job_id = ?", (job_id,)
+        "select id from ghost_jobs where gitlab_id = ?", (gl_id,)
     ) as cursor:
         if await cursor.fetchone():
             return True

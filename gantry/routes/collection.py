@@ -32,7 +32,7 @@ async def fetch_job(
     job = Job(
         status=payload["build_status"],
         name=payload["build_name"],
-        id=payload["build_id"],
+        gl_id=payload["build_id"],
         start=payload["build_started_at"],
         end=payload["build_finished_at"],
         ref=payload["ref"],
@@ -42,20 +42,20 @@ async def fetch_job(
     if (
         job.status != "success"
         or not job.valid_build_name  # is not a build job
-        or await db.job_exists(db_conn, job.id)  # job already in the database
-        or await db.ghost_exists(db_conn, job.id)  # ghost already in db
+        or await db.job_exists(db_conn, job.gl_id)  # job already in the database
+        or await db.ghost_exists(db_conn, job.gl_id)  # ghost already in db
     ):
         return
 
     # check if the job is a ghost
-    job_log = await gitlab.job_log(job.id)
+    job_log = await gitlab.job_log(job.gl_id)
     is_ghost = "No need to rebuild" in job_log
     if is_ghost:
-        db.insert_ghost(db_conn, job.id)
+        db.insert_ghost(db_conn, job.gl_id)
         return
 
     try:
-        annotations = await prometheus.get_job_annotations(job.id, job.midpoint)
+        annotations = await prometheus.get_job_annotations(job.gl_id, job.midpoint)
         resources, node_hostname = await prometheus.get_job_resources(
             annotations["pod"], job.midpoint
         )
@@ -63,7 +63,7 @@ async def fetch_job(
         node_id = await fetch_node(db_conn, prometheus, node_hostname, job.midpoint)
     except IncompleteData as e:
         # missing data, skip this job
-        logging.error(f"{e} job={job.id}")
+        logging.error(f"{e} job={job.gl_id}")
         return
 
     await db.insert_job(
@@ -72,7 +72,7 @@ async def fetch_job(
             "node": node_id,
             "start": job.start,
             "end": job.end,
-            "job_id": job.id,
+            "gitlab_id": job.gl_id,
             "job_status": job.status,
             "ref": job.ref,
             **annotations,

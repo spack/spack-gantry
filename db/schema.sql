@@ -9,14 +9,13 @@ CREATE TABLE nodes (
     instance_type TEXT NOT NULL
 );
 
-
 CREATE TABLE jobs (
     id INTEGER PRIMARY KEY,
     pod TEXT NOT NULL UNIQUE,
     node INTEGER NOT NULL,
     start INTEGER NOT NULL,
     end INTEGER NOT NULL,
-    job_id INTEGER NOT NULL UNIQUE,
+    gitlab_id INTEGER NOT NULL UNIQUE,
     job_status TEXT NOT NULL,
     ref TEXT NOT NULL,
     pkg_name TEXT NOT NULL,
@@ -49,5 +48,5 @@ CREATE TABLE jobs (
 
 CREATE TABLE ghost_jobs (
     id INTEGER PRIMARY KEY,
-    job_id INTEGER NOT NULL
+    gitlab_id INTEGER NOT NULL
 );
