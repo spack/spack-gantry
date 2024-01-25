@@ -1,4 +1,4 @@
-CREATE TABLE vms (
+CREATE TABLE nodes (
     id INTEGER PRIMARY KEY,
     uuid TEXT NOT NULL UNIQUE,
     hostname TEXT NOT NULL,
@@ -10,15 +10,14 @@ CREATE TABLE vms (
 );
 
 
-CREATE TABLE builds (
+CREATE TABLE jobs (
     id INTEGER PRIMARY KEY,
     pod TEXT NOT NULL UNIQUE,
-    vm INTEGER NOT NULL,
+    node INTEGER NOT NULL,
     start INTEGER NOT NULL,
     end INTEGER NOT NULL,
     job_id INTEGER NOT NULL UNIQUE,
     job_status TEXT NOT NULL,
-    retries INTEGER NOT NULL,
     ref TEXT NOT NULL,
     pkg_name TEXT NOT NULL,
     pkg_version TEXT NOT NULL,
@@ -42,8 +41,8 @@ CREATE TABLE builds (
     mem_max REAL NOT NULL,
     mem_min REAL NOT NULL,
     mem_stddev REAL NOT NULL,
-    FOREIGN KEY (vm)
-        REFERENCES vms (id)
+    FOREIGN KEY (node)
+        REFERENCES nodes (id)
             ON UPDATE CASCADE
             ON DELETE CASCADE
 );
