@@ -2,15 +2,17 @@ import logging
 
 import aiosqlite
 
-from gantry.models import VM, Build
+from gantry import db
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import IncompleteData, PrometheusClient
-from gantry.util.spec import valid_build_name
+from gantry.models import Job
+
+MB_IN_BYTES = 1_000_000
 
 
-async def fetch_build(
+async def fetch_job(
     payload: dict,
-    db: aiosqlite.Connection,
+    db_conn: aiosqlite.Connection,
     gitlab: GitlabClient,
     prometheus: PrometheusClient,
 ) -> None:
@@ -27,68 +29,100 @@ async def fetch_build(
     returns: None in order to accomodate a 200 response for the webhook.
     """
 
-    build = Build(
+    job = Job(
         status=payload["build_status"],
         name=payload["build_name"],
         id=payload["build_id"],
         start=payload["build_started_at"],
         end=payload["build_finished_at"],
-        retries=payload["retries_count"],
         ref=payload["ref"],
     )
 
     # perform checks to see if we should collect data for this job
     if (
-        build.status not in ("success",)
-        or not valid_build_name(build.name)  # is not a build job
-        or await build.in_db(db)  # job already in the database
-        or await build.is_ghost(db, gitlab)
+        job.status != "success"
+        or not job.valid_build_name  # is not a build job
+        or await db.job_exists(db_conn, job.id)  # job already in the database
+        or await db.ghost_exists(db_conn, job.id)  # ghost already in db
     ):
         return
 
-    try:
-        await build.get_annotations(prometheus)
-        await build.get_resources(prometheus)
-        await build.get_usage(prometheus)
-        vm_id = await fetch_vm(db, prometheus, build.node, build.midpoint)
-    except IncompleteData as e:
-        # missing data, skip this job
-        logging.error(e)
+    # check if the job is a ghost
+    job_log = await gitlab.job_log(job.id)
+    is_ghost = "No need to rebuild" in job_log
+    if is_ghost:
+        db.insert_ghost(db_conn, job.id)
         return
 
-    await build.insert(db, vm_id)
-    # vm and build will get saved at the same time to make sure
-    # we don't accidentally commit a vm without a build
-    await db.commit()
+    try:
+        annotations = await prometheus.get_job_annotations(job.id, job.midpoint)
+        resources, node_hostname = await prometheus.get_job_resources(
+            annotations["pod"], job.midpoint
+        )
+        usage = await prometheus.get_job_usage(annotations["pod"], job.start, job.end)
+        node_id = await fetch_node(db_conn, prometheus, node_hostname, job.midpoint)
+    except IncompleteData as e:
+        # missing data, skip this job
+        logging.error(f"{e} job={job.id}")
+        return
+
+    await db.insert_job(
+        db_conn,
+        {
+            "node": node_id,
+            "start": job.start,
+            "end": job.end,
+            "job_id": job.id,
+            "job_status": job.status,
+            "ref": job.ref,
+            **annotations,
+            **resources,
+            **usage,
+        },
+    )
+
+    # job and node will get saved at the same time to make sure
+    # we don't accidentally commit a node without a job
+    await db_conn.commit()
 
     return
 
 
-async def fetch_vm(
-    db: aiosqlite.Connection,
+async def fetch_node(
+    db_conn: aiosqlite.Connection,
     prometheus: PrometheusClient,
     hostname: dict,
     query_time: float,
 ) -> int:
     """
-    Finds an existing VM in the database or inserts a new one.
+    Finds an existing node in the database or inserts a new one.
 
     args:
         db: an active aiosqlite connection
         prometheus:
-        hostname: the hostname of the VM
-        query_time: any point during VM runtime, usually grabbed from build
+        hostname: the hostname of the node
+        query_time: any point during node runtime, usually grabbed from job
 
-    returns: id of the inserted or existing VM
+    returns: id of the inserted or existing node
     """
-    vm = VM(
-        hostname=hostname,
-        query_time=query_time,
+
+    node_uuid = await prometheus.get_node_uuid(hostname, query_time)
+
+    # do not proceed if the node exists
+    if existing_node := await db.get_node(db_conn, node_uuid):
+        return existing_node
+
+    node_labels = await prometheus.get_node_labels(hostname, query_time)
+    return await db.insert_node(
+        db_conn,
+        {
+            "uuid": node_uuid,
+            "hostname": hostname,
+            "cores": node_labels["cores"],
+            # convert to bytes to be consistent with other resource metrics
+            "mem": node_labels["mem"] * MB_IN_BYTES,
+            "arch": node_labels["arch"],
+            "os": node_labels["os"],
+            "instance_type": node_labels["instance_type"],
+        },
     )
-
-    # do not proceed if the VM exists
-    if existing_vm := await vm.db_id(db, prometheus):
-        return existing_vm
-
-    await vm.get_labels(prometheus)
-    return await vm.insert(db)
