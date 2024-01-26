@@ -4,7 +4,8 @@ import aiosqlite
 
 from gantry import db
 from gantry.clients.gitlab import GitlabClient
-from gantry.clients.prometheus import IncompleteData, PrometheusClient
+from gantry.clients.prometheus import PrometheusClient
+from gantry.clients.prometheus.util import IncompleteData
 from gantry.models import Job
 
 MB_IN_BYTES = 1_000_000
@@ -55,11 +56,11 @@ async def fetch_job(
         return
 
     try:
-        annotations = await prometheus.get_job_annotations(job.gl_id, job.midpoint)
-        resources, node_hostname = await prometheus.get_job_resources(
+        annotations = await prometheus.job.get_annotations(job.gl_id, job.midpoint)
+        resources, node_hostname = await prometheus.job.get_resources(
             annotations["pod"], job.midpoint
         )
-        usage = await prometheus.get_job_usage(annotations["pod"], job.start, job.end)
+        usage = await prometheus.job.get_usage(annotations["pod"], job.start, job.end)
         node_id = await fetch_node(db_conn, prometheus, node_hostname, job.midpoint)
     except IncompleteData as e:
         # missing data, skip this job
@@ -106,13 +107,13 @@ async def fetch_node(
     returns: id of the inserted or existing node
     """
 
-    node_uuid = await prometheus.get_node_uuid(hostname, query_time)
+    node_uuid = await prometheus.node.get_uuid(hostname, query_time)
 
     # do not proceed if the node exists
     if existing_node := await db.get_node(db_conn, node_uuid):
         return existing_node
 
-    node_labels = await prometheus.get_node_labels(hostname, query_time)
+    node_labels = await prometheus.node.get_labels(hostname, query_time)
     return await db.insert_node(
         db_conn,
         {
