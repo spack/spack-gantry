@@ -1,14 +1,13 @@
 # - [ ] only allow upper bounds for now
 # - store the current bounds static and make sure you don't go below? how would that work with the build size param...will it still exist?
-# TODO take in the hash and make that the unique identifier
-# TODO make them generic...what happens when they're missing
-# TODO make this compatible with the API...
-# batch vs  single
+# should we match kubernetes units? do we want to make it generic? in the prediction api MR
 
 
 import aiosqlite
 
 MIN_TRAIN_SAMPLE = 4
+DEFAULT_CPU_REQUEST = 1.0
+DEFAULT_MEM_REQUEST = 2000
 
 
 async def select_sample(db: aiosqlite.Connection, build: dict) -> list:
@@ -41,7 +40,7 @@ async def select_sample(db: aiosqlite.Connection, build: dict) -> list:
     return []
 
 
-async def predict_resource_usage(db: aiosqlite.Connection, build: dict) -> dict:
+async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
     """
     Predict the resource usage of a build
 
@@ -53,26 +52,25 @@ async def predict_resource_usage(db: aiosqlite.Connection, build: dict) -> dict:
 
     sample = await sample(db, build)
     if not sample:
-        return {
-            "cpu_request": 1.0,
-            "cpu_limit": None,
-            "mem_request": 2000,
-            "mem_limit": None,
+        vars = {
+            "cpu_request": DEFAULT_CPU_REQUEST,
+            "mem_request": DEFAULT_MEM_REQUEST,
         }
-    
-    # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
+    else:
+        # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
+        vars = {
+            # averages the respective metric in the sample
+            "cpu_request": sum([build[0] for build in sample]) / len(sample),
+            "mem_request": sum([build[2] for build in sample]) / len(sample),
+        }
+
     return {
-        # averages the respective metric in the sample
-        "cpu_request": sum([build[0] for build in sample]) / len(sample),
-        "cpu_limit": None,
-        # "cpu_limit": sum([build[1] for build in sample]) / len(sample),
-        "mem_request": sum([build[2] for build in sample]) / len(sample),
-        "mem_limit": None,
-        # "mem_limit": sum([build[3] for build in sample]) / len(sample),
+        "hash": build["hash"],
+        "variables": vars,
     }
 
 
-async def handle_bulk(db: aiosqlite.Connection, builds: list) -> list:
+async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
     """
     Handles a bulk request of builds
 
@@ -82,4 +80,4 @@ async def handle_bulk(db: aiosqlite.Connection, builds: list) -> list:
         list of dicts with predicted resource usage: cpu_request, cpu_limit, mem_request, mem_limit. CPU in cores, mem in MB
     """
 
-    return [await predict_resource_usage(db, build) for build in builds]
+    return [await predict_single(db, build) for build in builds]
