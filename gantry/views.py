@@ -6,6 +6,7 @@ import os
 from aiohttp import web
 
 from gantry.routes.collection import fetch_job
+from gantry.routes.prediction import predict_single, predict_bulk
 
 logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
@@ -35,3 +36,79 @@ async def collect_job(request: web.Request) -> web.Response:
     )
 
     return web.Response(status=200)
+
+
+@routes.get("/v1/resource-mapping")
+async def map_resources(request: web.Request) -> web.Response:
+    """
+    acceptable payload:
+
+    {
+        "hash": "string",
+        "package": {
+            "name": "string",
+            "version": "string"
+        },
+        "compiler": {
+            "name": "string",
+            "version": "string"
+        }
+    }
+
+    also accepts a list of the above objects
+
+    returns:
+
+    {
+        "hash": "string",
+        "variables": {
+            "cpu_request": "float",
+            "mem_request": "float",
+        }
+    }
+
+    or a list of the above objects
+    
+    """
+
+    try:
+        payload = await request.json()
+    except json.decoder.JSONDecodeError:
+        return web.Response(status=400, text="invalid json")
+    
+    def validate_payload(payload):
+        """ensures that the payload is valid"""
+        if not isinstance(payload, list):
+            payload = [payload]
+
+        for item in payload:
+            required_fields = ["hash", "package", "compiler"]
+            for field in required_fields:
+                if not isinstance(item.get(field), dict):
+                    return False
+
+            if not all(isinstance(item.get("package", {}).get(key), str) for key in ["name", "version"]):
+                return False
+
+            if not all(isinstance(item.get("compiler", {}).get(key), str) for key in ["name", "version"]):
+                return False
+
+        return True
+    
+    if not validate_payload(payload):
+        return web.Response(status=400, text="invalid payload")
+    
+    if isinstance(payload, dict):
+        response = await predict_single(request.app["db"], payload)
+    else:
+        response = await predict_bulk(request.app["db"], payload)
+
+    return web.json_response(response)
+
+
+
+
+
+
+
+
