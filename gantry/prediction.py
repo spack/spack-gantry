@@ -1,10 +1,9 @@
-# don't include retried builds in prediction bc of bias?
-
 # - [ ] only allow upper bounds for now
-# - [ ] weigh the most current build higher because of the retried jobs recursion thing
-# - [ ] is there a need to set up some sort of cache?
-# 	- [ ] like cache the calculation...hash the combo of parameters and store the prediction in a db table rather than doing calculation on the fly
 # - store the current bounds static and make sure you don't go below? how would that work with the build size param...will it still exist?
+# TODO take in the hash and make that the unique identifier
+# TODO make them generic...what happens when they're missing
+# TODO make this compatible with the API...
+# batch vs  single
 
 
 import aiosqlite
@@ -33,7 +32,7 @@ async def select_sample(db: aiosqlite.Connection, build: dict) -> list:
 
     for combo in param_combos:
         condition_values = [build[param] for param in combo]
-        query = f"SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM builds WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in combo)} ORDER BY end DESC LIMIT 5"
+        query = f"SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM builds WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in combo)} ORDER BY end DESC LIMIT {MIN_TRAIN_SAMPLE + 1}"
         async with db.execute(query, condition_values) as cursor:
             builds = await cursor.fetchall()
             if len(builds) >= MIN_TRAIN_SAMPLE:
