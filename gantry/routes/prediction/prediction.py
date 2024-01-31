@@ -6,6 +6,9 @@ MIN_TRAIN_SAMPLE = 4
 DEFAULT_CPU_REQUEST = 1000
 DEFAULT_MEM_REQUEST = 2000
 
+CORES_TO_MILLICORES = 1000
+BYTES_TO_MEGABYTES = 1/1_000_000
+
 
 def preprocess_pred(prediction, pkg_name):
     """
@@ -29,10 +32,10 @@ def preprocess_pred(prediction, pkg_name):
     # put into k8s units and should not be a float
     prediction["variables"][
         "cpu_request"
-    ] = f"{int(prediction['variables']['cpu_request'])}m"
+    ] = f"{int(prediction['variables']['cpu_request'] * CORES_TO_MILLICORES)}m"
     prediction["variables"][
         "mem_request"
-    ] = f"{int(prediction['variables']['mem_request'])}M"
+    ] = f"{int(prediction['variables']['mem_request'] * BYTES_TO_MEGABYTES)}M"
 
     return prediction
 
