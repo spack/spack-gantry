@@ -27,12 +27,6 @@ def insert_dict(table: str, input: dict, ignore=False) -> tuple[str, tuple]:
     return query, values_tuple
 
 
-async def insert_ghost(db: aiosqlite.Connection, gl_id: int) -> None:
-    """Inserts a ghost job into the database."""
-
-    await db.execute(("insert into ghost_jobs (gitlab_id) values (?)"), (gl_id,))
-
-
 async def insert_node(db: aiosqlite.Connection, node: dict) -> int:
     """Inserts a node into the database."""
 

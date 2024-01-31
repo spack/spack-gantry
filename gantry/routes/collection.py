@@ -52,7 +52,6 @@ async def fetch_job(
     job_log = await gitlab.job_log(job.gl_id)
     is_ghost = "No need to rebuild" in job_log
     if is_ghost:
-        db.insert_ghost(db_conn, job.gl_id)
         return
 
     try:

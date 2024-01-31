@@ -45,8 +45,3 @@ CREATE TABLE jobs (
             ON UPDATE CASCADE
             ON DELETE CASCADE
 );
-
-CREATE TABLE ghost_jobs (
-    id INTEGER PRIMARY KEY,
-    gitlab_id INTEGER NOT NULL
-);
