@@ -1,13 +1,15 @@
+import logging
+
 import aiosqlite
 
 from gantry.routes.prediction.current_mapping import pkg_mappings
 
 MIN_TRAIN_SAMPLE = 4
-DEFAULT_CPU_REQUEST = 1000
-DEFAULT_MEM_REQUEST = 2000
+DEFAULT_CPU_REQUEST = 1.0
+DEFAULT_MEM_REQUEST = 2000 * 1_000_000  # 2GB in bytes
 
 CORES_TO_MILLICORES = 1000
-BYTES_TO_MEGABYTES = 1/1_000_000
+BYTES_TO_MEGABYTES = 1 / 1_000_000
 
 
 def preprocess_pred(prediction, pkg_name):
@@ -22,25 +24,35 @@ def preprocess_pred(prediction, pkg_name):
     cur_alloc = pkg_mappings.get(pkg_name)
 
     if cur_alloc:
-        prediction["variables"]["cpu_request"] = max(
-            prediction["variables"]["cpu_request"], cur_alloc["cpu_request"]
+        prediction["variables"]["KUBERNETES_CPU_REQUEST"] = max(
+            prediction["variables"]["KUBERNETES_CPU_REQUEST"], cur_alloc["cpu_request"]
         )
-        prediction["variables"]["mem_request"] = max(
-            prediction["variables"]["mem_request"], cur_alloc["mem_request"]
+        prediction["variables"]["KUBERNETES_MEMORY_REQUEST"] = max(
+            prediction["variables"]["KUBERNETES_MEMORY_REQUEST"],
+            cur_alloc["mem_request"],
         )
 
-    # put into k8s units and should not be a float
-    prediction["variables"][
-        "cpu_request"
-    ] = f"{int(prediction['variables']['cpu_request'] * CORES_TO_MILLICORES)}m"
-    prediction["variables"][
-        "mem_request"
-    ] = f"{int(prediction['variables']['mem_request'] * BYTES_TO_MEGABYTES)}M"
+    # put into k8s friendly format
+    prediction["variables"]["KUBERNETES_CPU_REQUEST"] = (
+        str(
+            int(prediction["variables"]["KUBERNETES_CPU_REQUEST"] * CORES_TO_MILLICORES)
+        )
+        + "m"
+    )
+    prediction["variables"]["KUBERNETES_MEMORY_REQUEST"] = (
+        str(
+            int(
+                prediction["variables"]["KUBERNETES_MEMORY_REQUEST"]
+                * BYTES_TO_MEGABYTES
+            )
+        )
+        + "M"
+    )
 
     return prediction
 
 
-async def select_sample(db: aiosqlite.Connection, build: dict) -> list:
+async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
     """
     Selects a sample of builds to use for prediction
 
@@ -50,22 +62,33 @@ async def select_sample(db: aiosqlite.Connection, build: dict) -> list:
         list of lists with cpu_mean, cpu_max, mem_mean, mem_max
     """
 
+    flat_build = {
+        "pkg_name": build["package"]["name"],
+        "pkg_version": build["package"]["version"],
+        "compiler_name": build["compiler"]["name"],
+        "compiler_version": build["compiler"]["version"],
+    }
+
     param_combos = [
         ("pkg_name", "pkg_version", "compiler_name", "compiler_version"),
         ("pkg_name", "compiler_name", "compiler_version"),
         ("pkg_name", "pkg_version", "compiler_name"),
         ("pkg_name", "compiler_name"),
         ("pkg_name", "pkg_version"),
-        ("pkg_name"),
+        ("pkg_name",),
     ]
 
     for combo in param_combos:
-        condition_values = [build[param] for param in combo]
-        query = f"SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM builds WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in combo)} ORDER BY end DESC LIMIT {MIN_TRAIN_SAMPLE + 1}"
+        condition_values = [flat_build[param] for param in combo]
+        query = f"""
+        SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs WHERE ref='develop'
+        AND {' AND '.join(f'{param}=?' for param in combo)}
+        ORDER BY end DESC LIMIT {MIN_TRAIN_SAMPLE + 1}
+        """
         async with db.execute(query, condition_values) as cursor:
-            builds = await cursor.fetchall()
-            if len(builds) >= MIN_TRAIN_SAMPLE:
-                return builds
+            sample = await cursor.fetchall()
+            if len(sample) >= MIN_TRAIN_SAMPLE:
+                return sample
 
     return []
 
@@ -81,7 +104,7 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
         CPU in millicore, mem in MB
     """
 
-    sample = await select_sample(db, build)
+    sample = await get_sample(db, build)
     if not sample:
         vars = {
             "KUBERNETES_CPU_REQUEST": DEFAULT_CPU_REQUEST,
@@ -102,7 +125,12 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
         "variables": vars,
     }
 
-    return preprocess_pred(pred, build["pkg_name"])
+    if pred["variables"]["KUBERNETES_CPU_REQUEST"] < 0.25:
+        logging.warning(f"Warning: CPU request for {build['hash']} is below 0.25 cores")
+    if pred["variables"]["KUBERNETES_MEMORY_REQUEST"] < 10000000:
+        logging.warning(f"Warning: Memory request for {build['hash']} is below 10MB")
+
+    return preprocess_pred(pred, build["package"]["name"])
 
 
 async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
