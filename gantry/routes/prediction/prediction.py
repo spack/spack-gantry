@@ -1,13 +1,40 @@
-# - [ ] only allow upper bounds for now
-# - store the current bounds static and make sure you don't go below? how would that work with the build size param...will it still exist?
-# should we match kubernetes units? do we want to make it generic? in the prediction api MR
-
-
 import aiosqlite
 
+from gantry.routes.prediction.current_mapping import pkg_mappings
+
 MIN_TRAIN_SAMPLE = 4
-DEFAULT_CPU_REQUEST = 1.0
+DEFAULT_CPU_REQUEST = 1000
 DEFAULT_MEM_REQUEST = 2000
+
+
+def preprocess_pred(prediction, pkg_name):
+    """
+    Main goal of this function is to ensure that our
+    prediction is not lower than the current allocation
+    for that package. This restriction will likely be
+    removed in the future as we understand the effectiveness
+    of the prediction model.
+    """
+
+    cur_alloc = pkg_mappings.get(pkg_name)
+
+    if cur_alloc:
+        prediction["variables"]["cpu_request"] = max(
+            prediction["variables"]["cpu_request"], cur_alloc["cpu_request"]
+        )
+        prediction["variables"]["mem_request"] = max(
+            prediction["variables"]["mem_request"], cur_alloc["mem_request"]
+        )
+
+    # put into k8s units and should not be a float
+    prediction["variables"][
+        "cpu_request"
+    ] = f"{int(prediction['variables']['cpu_request'])}m"
+    prediction["variables"][
+        "mem_request"
+    ] = f"{int(prediction['variables']['mem_request'])}M"
+
+    return prediction
 
 
 async def select_sample(db: aiosqlite.Connection, build: dict) -> list:
@@ -47,27 +74,32 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
     args:
         build: dict that must contain pkg name, pkg version, compiler, compiler version
     returns:
-        dict of predicted resource usage: cpu_request, cpu_limit, mem_request, mem_limit. CPU in cores, mem in MB
+        dict of predicted resource usage: cpu_request, mem_request
+        CPU in millicore, mem in MB
     """
 
-    sample = await sample(db, build)
+    sample = await select_sample(db, build)
     if not sample:
         vars = {
-            "cpu_request": DEFAULT_CPU_REQUEST,
-            "mem_request": DEFAULT_MEM_REQUEST,
+            "KUBERNETES_CPU_REQUEST": DEFAULT_CPU_REQUEST,
+            "KUBERNETES_MEMORY_REQUEST": DEFAULT_MEM_REQUEST,
         }
     else:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         vars = {
             # averages the respective metric in the sample
-            "cpu_request": sum([build[0] for build in sample]) / len(sample),
-            "mem_request": sum([build[2] for build in sample]) / len(sample),
+            "KUBERNETES_CPU_REQUEST": sum([build[0] for build in sample]) / len(sample),
+            "KUBERNETES_MEMORY_REQUEST": (
+                sum([build[2] for build in sample]) / len(sample)
+            ),
         }
 
-    return {
+    pred = {
         "hash": build["hash"],
         "variables": vars,
     }
+
+    return preprocess_pred(pred, build["pkg_name"])
 
 
 async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
@@ -75,9 +107,8 @@ async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
     Handles a bulk request of builds
 
     args:
-        builds: list of dicts that must contain pkg name, pkg version, compiler, compiler version
-    returns:
-        list of dicts with predicted resource usage: cpu_request, cpu_limit, mem_request, mem_limit. CPU in cores, mem in MB
+        builds: list of dicts (see predict_single)
+    returns: see predict_single)
     """
 
     return [await predict_single(db, build) for build in builds]
