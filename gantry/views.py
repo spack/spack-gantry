@@ -38,7 +38,7 @@ async def collect_job(request: web.Request) -> web.Response:
     return web.Response(status=200)
 
 
-@routes.get("/v1/resource-mapping")
+@routes.post("/v1/allocate")
 async def map_resources(request: web.Request) -> web.Response:
     """
     acceptable payload:
@@ -82,7 +82,10 @@ async def map_resources(request: web.Request) -> web.Response:
             payload = [payload]
 
         for item in payload:
-            required_fields = ["hash", "package", "compiler"]
+            if not isinstance(item.get("hash"), str):
+                return False
+
+            required_fields = ["package", "compiler"]
             for field in required_fields:
                 if not isinstance(item.get(field), dict):
                     return False
