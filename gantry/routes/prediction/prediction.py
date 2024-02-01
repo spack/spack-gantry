@@ -1,55 +1,82 @@
 import logging
 
+# TODO clean all this up check obsidian notes to make sure everything's implemented
+
 import aiosqlite
 
 from gantry.routes.prediction.current_mapping import pkg_mappings
+from gantry.util.k8s import convert_bytes, convert_cores
 
-MIN_TRAIN_SAMPLE = 4
+IDEAL_SAMPLE = 4
 DEFAULT_CPU_REQUEST = 1.0
 DEFAULT_MEM_REQUEST = 2000 * 1_000_000  # 2GB in bytes
 
-CORES_TO_MILLICORES = 1000
-BYTES_TO_MEGABYTES = 1 / 1_000_000
 
-
-def preprocess_pred(prediction, pkg_name):
+async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
     """
-    Main goal of this function is to ensure that our
-    prediction is not lower than the current allocation
-    for that package. This restriction will likely be
-    removed in the future as we understand the effectiveness
-    of the prediction model.
+    Predict the resource usage of a build
+
+    args:
+        build: dict that must contain pkg name, pkg version, compiler, compiler version
+    returns:
+        dict of predicted resource usage: cpu_request, mem_request
+        CPU in millicore, mem in MB
     """
 
-    cur_alloc = pkg_mappings.get(pkg_name)
+    sample = await get_sample(db, build)
+    predictions = {}
+    if not sample:
+        predictions = {
+            "cpu_request": DEFAULT_CPU_REQUEST,
+            "mem_request": DEFAULT_MEM_REQUEST,
+        }
+    else:
+        # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
+        predictions = {
+            # averages the respective metric in the sample
+            "cpu_request": sum([build[0] for build in sample]) / len(sample),
+            "mem_request": (sum([build[2] for build in sample]) / len(sample)),
+        }
 
-    if cur_alloc:
-        prediction["variables"]["KUBERNETES_CPU_REQUEST"] = max(
-            prediction["variables"]["KUBERNETES_CPU_REQUEST"], cur_alloc["cpu_request"]
-        )
-        prediction["variables"]["KUBERNETES_MEMORY_REQUEST"] = max(
-            prediction["variables"]["KUBERNETES_MEMORY_REQUEST"],
-            cur_alloc["mem_request"],
-        )
+    ensure_higher_pred(predictions, build["package"]["name"])
 
-    # put into k8s friendly format
-    prediction["variables"]["KUBERNETES_CPU_REQUEST"] = (
-        str(
-            int(prediction["variables"]["KUBERNETES_CPU_REQUEST"] * CORES_TO_MILLICORES)
-        )
-        + "m"
-    )
-    prediction["variables"]["KUBERNETES_MEMORY_REQUEST"] = (
-        str(
-            int(
-                prediction["variables"]["KUBERNETES_MEMORY_REQUEST"]
-                * BYTES_TO_MEGABYTES
-            )
-        )
-        + "M"
-    )
+    # warn if the prediction is below some thresholds
+    if predictions["cpu_request"] < 0.25:
+        logging.warning(f"Warning: CPU request for {build['hash']} is below 0.25 cores")
+        predictions["cpu_request"] = DEFAULT_CPU_REQUEST
+    if predictions["mem_request"] < 10_000_000:
+        logging.warning(f"Warning: Memory request for {build['hash']} is below 10MB")
+        predictions["mem_request"] = DEFAULT_MEM_REQUEST
 
-    return prediction
+    # convert predictions to k8s friendly format
+    for k, v in predictions.items():
+        if k.startswith("cpu"):
+            predictions[k] = convert_cores(v)
+        elif k.startswith("mem"):
+            predictions[k] = convert_bytes(v)
+
+    return {
+        "hash": build["hash"],
+        "variables": {
+            # spack uses these env vars to set the resource requests
+            # set them here at the last minute to avoid using these vars
+            # and clogging up the code
+            "KUBERNETES_CPU_REQUEST": predictions["cpu_request"],
+            "KUBERNETES_MEMORY_REQUEST": predictions["mem_request"],
+        },
+    }
+
+
+async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
+    """
+    Handles a bulk request of builds
+
+    args:
+        builds: list of dicts (see predict_single)
+    returns: see predict_single)
+    """
+
+    return [await predict_single(db, build) for build in builds]
 
 
 async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
@@ -69,6 +96,7 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
         "compiler_version": build["compiler"]["version"],
     }
 
+    # ranked in order of priority, the params we would like to match on
     param_combos = [
         ("pkg_name", "pkg_version", "compiler_name", "compiler_version"),
         ("pkg_name", "compiler_name", "compiler_version"),
@@ -79,67 +107,42 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
     ]
 
     for combo in param_combos:
+        # filter by the params we want
         condition_values = [flat_build[param] for param in combo]
+        # we want at least MIN_TRAIN_SAMPLE +1/= rows
         query = f"""
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs WHERE ref='develop'
         AND {' AND '.join(f'{param}=?' for param in combo)}
-        ORDER BY end DESC LIMIT {MIN_TRAIN_SAMPLE + 1}
+        ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
         """
         async with db.execute(query, condition_values) as cursor:
             sample = await cursor.fetchall()
-            if len(sample) >= MIN_TRAIN_SAMPLE:
+            # we can accept the sample if it's 1 shorter
+            if len(sample) >= IDEAL_SAMPLE - 1:
                 return sample
+            # continue if we didn't find enough rows
 
     return []
 
 
-async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
+def ensure_higher_pred(prediction: dict, pkg_name: str):
     """
-    Predict the resource usage of a build
+    Ensure that the prediction is higher than the current allocation
+    for the package. This will be removed in the future as we analyze
+    the effectiveness of the prediction model.
 
     args:
-        build: dict that must contain pkg name, pkg version, compiler, compiler version
-    returns:
-        dict of predicted resource usage: cpu_request, mem_request
-        CPU in millicore, mem in MB
+        prediction: dict of predicted resource usage: cpu_request, mem_request
+        pkg_name: str
     """
 
-    sample = await get_sample(db, build)
-    if not sample:
-        vars = {
-            "KUBERNETES_CPU_REQUEST": DEFAULT_CPU_REQUEST,
-            "KUBERNETES_MEMORY_REQUEST": DEFAULT_MEM_REQUEST,
-        }
-    else:
-        # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
-        vars = {
-            # averages the respective metric in the sample
-            "KUBERNETES_CPU_REQUEST": sum([build[0] for build in sample]) / len(sample),
-            "KUBERNETES_MEMORY_REQUEST": (
-                sum([build[2] for build in sample]) / len(sample)
-            ),
-        }
+    cur_alloc = pkg_mappings.get(pkg_name)
 
-    pred = {
-        "hash": build["hash"],
-        "variables": vars,
-    }
+    if cur_alloc:
+        prediction["cpu_request"] = max(
+            prediction["cpu_request"], cur_alloc["cpu_request"]
+        )
 
-    if pred["variables"]["KUBERNETES_CPU_REQUEST"] < 0.25:
-        logging.warning(f"Warning: CPU request for {build['hash']} is below 0.25 cores")
-    if pred["variables"]["KUBERNETES_MEMORY_REQUEST"] < 10000000:
-        logging.warning(f"Warning: Memory request for {build['hash']} is below 10MB")
-
-    return preprocess_pred(pred, build["package"]["name"])
-
-
-async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
-    """
-    Handles a bulk request of builds
-
-    args:
-        builds: list of dicts (see predict_single)
-    returns: see predict_single)
-    """
-
-    return [await predict_single(db, build) for build in builds]
+        prediction["mem_request"] = max(
+            prediction["mem_request"], cur_alloc["mem_request"]
+        )
