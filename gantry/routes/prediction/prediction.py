@@ -1,14 +1,12 @@
 import asyncio
 import logging
 
-# TODO clean all this up check obsidian notes to make sure everything's implemented
-
 import aiosqlite
 
 from gantry.routes.prediction.current_mapping import pkg_mappings
 from gantry.util import k8s, spec
 
-IDEAL_SAMPLE = 4
+IDEAL_SAMPLE = 5
 DEFAULT_CPU_REQUEST = 1.0
 DEFAULT_MEM_REQUEST = 2000 * 1_000_000  # 2GB in bytes
 
@@ -74,7 +72,7 @@ async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
 
     args:
         builds: list of dicts (see predict_single)
-    returns: see predict_single)
+    returns: see predict_single
     """
 
     return await asyncio.gather(*(predict_single(db, build) for build in builds))
