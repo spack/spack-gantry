@@ -29,7 +29,7 @@ def query_to_str(metric: str, filters: dict) -> str:
     return f"{metric}{{{filters_str}}}"
 
 
-def process_resources(res: dict) -> dict:
+def process_resources(res: list) -> dict:
     """
     Processes the resource limits and requests from a Prometheus response into
     readable format.
@@ -54,7 +54,7 @@ def process_resources(res: dict) -> dict:
     return processed
 
 
-def process_usage(res: dict) -> dict:
+def process_usage(res: list) -> dict:
     """
     Processes the usage data from a Prometheus response into readable format.
     This could either be CPU usage or memory usage.

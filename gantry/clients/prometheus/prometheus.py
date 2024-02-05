@@ -18,7 +18,7 @@ class PrometheusClient:
 
         self.base_url = base_url
 
-    async def query_single(self, query: str | dict, time: int) -> dict:
+    async def query_single(self, query: str | dict, time: int) -> list:
         """Query Prometheus for a single value
         args:
 
@@ -39,7 +39,7 @@ class PrometheusClient:
         url = f"{self.base_url}/query?query={query}&time={time}"
         return await self._query(url)
 
-    async def query_range(self, query: str | dict, start: int, end: int) -> dict:
+    async def query_range(self, query: str | dict, start: int, end: int) -> list:
         """Query Prometheus for a range of values
 
         args:
@@ -64,7 +64,7 @@ class PrometheusClient:
         )
         return await self._query(url)
 
-    async def _query(self, url: str) -> dict:
+    async def _query(self, url: str) -> list:
         """Query Prometheus with a query string"""
         async with aiohttp.ClientSession(raise_for_status=True) as session:
             # submit cookie with request
@@ -78,7 +78,7 @@ class PrometheusClient:
                     )
                     return {}
 
-    def prettify_res(self, response: dict) -> dict:
+    def prettify_res(self, response: dict) -> list:
         """Process Prometheus response into an arrray of dicts with {label: value}"""
         result_type = response.get("data", {}).get("resultType")
         values_dict = {
@@ -88,7 +88,7 @@ class PrometheusClient:
 
         if result_type not in values_dict:
             logging.error(f"Prometheus response type {result_type} not supported")
-            return {}
+            return []
 
         return [
             {"labels": result["metric"], "values": result[values_dict[result_type]]}
