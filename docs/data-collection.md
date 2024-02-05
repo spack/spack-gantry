@@ -2,9 +2,17 @@
 
 Job metadata is retrieved through the Spack Prometheus service (https://prometheus.spack.io).
 
+Gantry exposes a webhook handler at `/v1/collection` which will accept a job status payload from Gitlab and collect build attributes and usage, submitting to the database.
+
+See `/db/schema.sql` for a full list of the data that is being collected.
+
+## Units
+
+Memory usage is stored in bytes, while CPU usage is stored in cores. Pay special attention if you are interacting with relevant fields if you are performing calculations or sending data from these fields to Kubernetes or another external service. They may expect these values in different units.
+
+------
+
 Links to documentation for metrics available:
 - [node](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/node-metrics.md)
 - [pod](https://github.com/kubernetes/kube-state-metrics/blob/main/docs/pod-metrics.md)
 - [container](https://github.com/google/cadvisor/blob/master/docs/storage/prometheus.md)
-
-To programmatically access Prometheus, one must send a copy of a session cookie with their request. In the future, we would be able to use a generated API token to authenticate.
