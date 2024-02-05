@@ -16,8 +16,7 @@ class PrometheusJobClient:
         returns: dict of annotations
         """
 
-        res = await self.client.query(
-            type="single",
+        res = await self.client.query_single(
             query={
                 "metric": "kube_pod_annotations",
                 "filters": {"annotation_gitlab_ci_job_id": gl_id},
@@ -60,8 +59,7 @@ class PrometheusJobClient:
         """
 
         requests = util.process_resources(
-            await self.client.query(
-                type="single",
+            await self.client.query_single(
                 query={
                     "metric": "kube_pod_container_resource_requests",
                     "filters": {"container": "build", "pod": pod},
@@ -70,8 +68,7 @@ class PrometheusJobClient:
             )
         )
 
-        limits_res = await self.client.query(
-            type="single",
+        limits_res = await self.client.query_single(
             query={
                 "metric": "kube_pod_container_resource_limits",
                 "filters": {"container": "build", "pod": pod},
@@ -111,8 +108,7 @@ class PrometheusJobClient:
         """
 
         mem_usage = util.process_usage(
-            await self.client.query(
-                type="range",
+            await self.client.query_range(
                 query={
                     "metric": "container_memory_working_set_bytes",
                     "filters": {"container": "build", "pod": pod},
@@ -123,9 +119,8 @@ class PrometheusJobClient:
         )
 
         cpu_usage = util.process_usage(
-            await self.client.query(
-                type="range",
-                custom_query=(
+            await self.client.query_range(
+                query=(
                     f"rate(container_cpu_usage_seconds_total{{"
                     f"pod='{pod}', container='build'}}[90s])"
                 ),

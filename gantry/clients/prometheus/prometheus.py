@@ -1,6 +1,5 @@
 import logging
 import math
-import urllib.parse
 
 import aiohttp
 
@@ -19,51 +18,51 @@ class PrometheusClient:
 
         self.base_url = base_url
 
-    async def query(self, type: str, **kwargs) -> dict:
+    async def query_single(self, query: str | dict, time: int) -> dict:
+        """Query Prometheus for a single value
+        args:
+
+            query: str or dict
+                if str, the query string
+                if dict, the metric and filters
+                example:
+                    "query": {
+                        "metric": "metric_name",
+                        "filters": {"filter1": "value1", "filter2": "value2"}
+                    }
+            time: int (unix timestamp)
+
+        returns: dict with {label: value} format
         """
-        type: "range" or "single"
 
-        for range queries: set `start` and `end` (unix timestamps)
-        for single queries: set `time` (unix timestamp)
+        query = util.process_query(query)
+        url = f"{self.base_url}/query?query={query}&time={time}"
+        return await self._query(url)
 
-        for custom queries: set `custom_query` (string)
+    async def query_range(self, query: str | dict, start: int, end: int) -> dict:
+        """Query Prometheus for a range of values
 
-        for metric queries: set `query` (dict)
-            example:
-                "query": {
-                    "metric": "metric_name",
-                    "filters": {"filter1": "value1", "filter2": "value2"}
-                }
+        args:
+            query: see query_single
+            start: int (unix timestamp)
+            end: int (unix timestamp)
+
+        returns: list of dicts with {label: value} format
         """
 
-        # validate that one of query or custom_query is set, but not both or neither
-        if not kwargs.get("query") and not kwargs.get("custom_query"):
-            raise ValueError("query or custom_query must be set")
-        if kwargs.get("query") and kwargs.get("custom_query"):
-            raise ValueError("query and custom_query cannot both be set")
-
-        query_str = urllib.parse.quote(
-            kwargs["custom_query"]
-            if kwargs.get("custom_query")
-            else util.query_to_str(**kwargs["query"])
+        query = util.process_query(query)
+        # prometheus will only return this many frames
+        max_resolution = 10_000
+        # calculating the max step size to get the desired resolution
+        step = math.ceil((end - start) / max_resolution)
+        url = (
+            f"{self.base_url}/query_range?"
+            f"query={query}&"
+            f"start={start}&"
+            f"end={end}&"
+            f"step={step}s"
         )
-
-        if type == "range":
-            # prometheus will only return this many frames
-            max_resolution = 10_000
-            # calculating the max step size to get the desired resolution
-            step = math.ceil((kwargs["end"] - kwargs["start"]) / max_resolution)
-            url = (
-                f"{self.base_url}/query_range?"
-                f"query={query_str}&"
-                f"start={kwargs['start']}&"
-                f"end={kwargs['end']}&"
-                f"step={step}s"
-            )
-            return await self._query(url)
-        elif type == "single":
-            url = f"{self.base_url}/query?query={query_str}&time={kwargs['time']}"
-            return await self._query(url)
+        return await self._query(url)
 
     async def _query(self, url: str) -> dict:
         """Query Prometheus with a query string"""

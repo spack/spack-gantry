@@ -13,8 +13,7 @@ class PrometheusNodeClient:
         returns: dict of node info (UUID as of now)
         """
 
-        res = await self.client.query(
-            type="single",
+        res = await self.client.query_single(
             query={
                 "metric": "kube_node_info",
                 "filters": {"node": hostname},
@@ -35,8 +34,7 @@ class PrometheusNodeClient:
         returns: dict of node labels
         """
 
-        res = await self.client.query(
-            type="single",
+        res = await self.client.query_single(
             query={
                 "metric": "kube_node_labels",
                 "filters": {"node": hostname},

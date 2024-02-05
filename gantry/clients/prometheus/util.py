@@ -1,9 +1,23 @@
 import math
 import statistics
+import urllib.parse
 
 
 class IncompleteData(Exception):
     pass
+
+
+def process_query(query: dict | str) -> str:
+    """
+    Processes query into a string that can be used in a URL.
+    See query_single in prometheus.py for more details on args.
+    """
+    if isinstance(query, dict):
+        query = query_to_str(**query)
+    elif not isinstance(query, str):
+        raise ValueError("query must be a string or dict")
+
+    return urllib.parse.quote(query)
 
 
 def query_to_str(metric: str, filters: dict) -> str:
