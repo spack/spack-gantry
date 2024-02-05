@@ -27,7 +27,7 @@ async def fetch_job(
         payload: a dictionary containing the information from the Gitlab job hook
         db: an active aiosqlite connection
 
-    returns: None in order to accomodate a 200 response for the webhook.
+    returns: None in order to accommodate a 200 response for the webhook.
     """
 
     job = Job(
@@ -43,6 +43,8 @@ async def fetch_job(
     if (
         job.status != "success"
         or not job.valid_build_name  # is not a build job
+        # uo runners are not in Prometheus
+        or payload["runner"]["description"].startswith("uo")
         or await db.job_exists(db_conn, job.gl_id)  # job already in the database
         or await db.ghost_exists(db_conn, job.gl_id)  # ghost already in db
     ):
