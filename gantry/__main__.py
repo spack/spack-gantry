@@ -3,7 +3,8 @@ import os
 import aiosqlite
 from aiohttp import web
 
-from gantry.clients import GitlabClient, PrometheusClient
+from gantry.clients.gitlab import GitlabClient
+from gantry.clients.prometheus import PrometheusClient
 from gantry.views import routes
 
 
