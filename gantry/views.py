@@ -10,7 +10,7 @@ from gantry.routes.collection import fetch_job
 routes = web.RouteTableDef()
 
 
-@routes.post("/collect")
+@routes.post("/v1/collect")
 async def collect_job(request: web.Request) -> web.Response:
     try:
         payload = await request.json()
