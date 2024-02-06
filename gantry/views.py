@@ -70,9 +70,13 @@ async def allocate(request: web.Request) -> web.Response:
     or a list of the above objects
 
     """
+    payload = request.query.get("query")
+
+    if not payload:
+        return web.Response(status=400, text="missing query parameter")
 
     try:
-        payload = await request.json()
+        payload = json.loads(payload)
     except json.decoder.JSONDecodeError:
         return web.Response(status=400, text="invalid json")
 

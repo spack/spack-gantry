@@ -1,3 +1,4 @@
+import asyncio
 import logging
 import os
 
@@ -33,13 +34,36 @@ async def init_clients(app: web.Application):
     )
 
 
-def main():
+async def main():
     app = web.Application()
     app.add_routes(routes)
     app.cleanup_ctx.append(init_db)
     app.on_startup.append(init_clients)
-    web.run_app(app)
+    runner = web.AppRunner(
+        app, max_line_size=int(os.environ.get("MAX_GET_SIZE", 100_000))
+    )
+    await runner.setup()
+    site = web.TCPSite(
+        runner,
+        os.environ.get("GANTRY_HOST", "localhost"),
+        os.environ.get("GANTRY_PORT", 8080),
+    )
+    await site.start()
+
+    print(
+        f"""Gantry running on {os.environ.get('GANTRY_HOST', 'localhost')}:
+        {os.environ.get('GANTRY_PORT', 8080)}"""
+    )
+    print("-------------------")
+
+    try:
+        # wait for finish signal
+        await asyncio.Future()
+    except asyncio.CancelledError:
+        pass
+    finally:
+        await runner.cleanup()
 
 
 if __name__ == "__main__":
-    main()
+    asyncio.run(main())
