@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 # TODO clean all this up check obsidian notes to make sure everything's implemented
@@ -76,7 +77,7 @@ async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
     returns: see predict_single)
     """
 
-    return [await predict_single(db, build) for build in builds]
+    return await asyncio.gather(*(predict_single(db, build) for build in builds))
 
 
 async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
