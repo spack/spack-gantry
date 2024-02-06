@@ -38,8 +38,8 @@ async def collect_job(request: web.Request) -> web.Response:
     return web.Response(status=200)
 
 
-@routes.post("/v1/allocate")
-async def map_resources(request: web.Request) -> web.Response:
+@routes.get("/v1/allocation")
+async def allocate(request: web.Request) -> web.Response:
     """
     acceptable payload:
 
