@@ -80,29 +80,29 @@ async def allocate(request: web.Request) -> web.Response:
     except json.decoder.JSONDecodeError:
         return web.Response(status=400, text="invalid json")
 
-    def validate_payload(payload):
-        """ensures that the payload is valid"""
-        if not isinstance(payload, list):
+    def validate_payload(payload: dict) -> bool:
+        """Ensures that the payload from the client is valid."""
+        # must be a dict or a list
+        if not isinstance(payload, (dict, list)):
+            return False
+
+        if isinstance(payload, dict):
+            # put dict in list for iteration
             payload = [payload]
 
         for item in payload:
-            if not isinstance(item.get("hash"), str):
-                return False
-
-            required_fields = ["package", "compiler"]
-            for field in required_fields:
-                if not isinstance(item.get(field), dict):
-                    return False
-
-            if not all(
-                isinstance(item.get("package", {}).get(key), str)
-                for key in ["name", "version"]
-            ):
-                return False
-
-            if not all(
-                isinstance(item.get("compiler", {}).get(key), str)
-                for key in ["name", "version"]
+            if not (
+                # item must be dict
+                isinstance(item, dict)
+                # must contain hash field
+                and isinstance(item.get("hash"), str)
+                # must contain name and version
+                # for both package and compiler
+                and all(
+                    isinstance(item.get(field, {}).get(key), str)
+                    for field in ["package", "compiler"]
+                    for key in ["name", "version"]
+                )
             ):
                 return False
 
@@ -113,7 +113,7 @@ async def allocate(request: web.Request) -> web.Response:
 
     if isinstance(payload, dict):
         response = await predict_single(request.app["db"], payload)
-    else:
+    elif isinstance(payload, list):
         response = await predict_bulk(request.app["db"], payload)
 
     return web.json_response(response)
