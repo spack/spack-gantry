@@ -103,6 +103,8 @@ async def allocation(request: web.Request) -> web.Response:
                     for field in ["package", "compiler"]
                     for key in ["name", "version"]
                 )
+                # look for variants inside package
+                and isinstance(item.get("package", {}).get("variants"), str)
             ):
                 return False
 
