@@ -40,7 +40,7 @@ async def main():
     app.cleanup_ctx.append(init_db)
     app.on_startup.append(init_clients)
     runner = web.AppRunner(
-        app, max_line_size=int(os.environ.get("MAX_GET_SIZE", 100_000))
+        app, max_line_size=int(os.environ.get("MAX_GET_SIZE", 800_000))
     )
     await runner.setup()
     port = os.environ.get("GANTRY_PORT", 8080)
