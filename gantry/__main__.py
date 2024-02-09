@@ -43,17 +43,16 @@ async def main():
         app, max_line_size=int(os.environ.get("MAX_GET_SIZE", 100_000))
     )
     await runner.setup()
+    port = os.environ.get("GANTRY_PORT", 8080)
+    host = os.environ.get("GANTRY_HOST", "localhost")
     site = web.TCPSite(
         runner,
-        os.environ.get("GANTRY_HOST", "localhost"),
-        os.environ.get("GANTRY_PORT", 8080),
+        host,
+        port,
     )
     await site.start()
 
-    print(
-        f"""Gantry running on {os.environ.get('GANTRY_HOST', 'localhost')}:
-        {os.environ.get('GANTRY_PORT', 8080)}"""
-    )
+    print(f"Gantry running on {host}:{port}")
     print("-------------------")
 
     try:
