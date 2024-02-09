@@ -6,7 +6,7 @@ import logging
 import aiosqlite
 
 from gantry.routes.prediction.current_mapping import pkg_mappings
-from gantry.util.k8s import convert_bytes, convert_cores
+from gantry.util import k8s
 
 IDEAL_SAMPLE = 4
 DEFAULT_CPU_REQUEST = 1.0
@@ -35,8 +35,8 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         predictions = {
             # averages the respective metric in the sample
-            "cpu_request": sum([build[0] for build in sample]) / len(sample),
-            "mem_request": (sum([build[2] for build in sample]) / len(sample)),
+            "cpu_request": round(sum([build[0] for build in sample]) / len(sample)),
+            "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
     ensure_higher_pred(predictions, build["package"]["name"])
@@ -52,9 +52,9 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
         if k.startswith("cpu"):
-            predictions[k] = convert_cores(v)
+            predictions[k] = str(int(v))
         elif k.startswith("mem"):
-            predictions[k] = convert_bytes(v)
+            predictions[k] = k8s.convert_bytes(v)
 
     return {
         "hash": build["hash"],
