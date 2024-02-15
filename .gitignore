@@ -1,5 +1,3 @@
 __pycache__
 .env
-spack.lock
-.spack-env
 db/*.db

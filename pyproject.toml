@@ -2,3 +2,8 @@
 profile = "black"
 skip_gitignore = true
 color_output = true
+
+dependencies = [
+    "aiohttp",
+    "aiosqlite"
+]
