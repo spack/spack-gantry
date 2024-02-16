@@ -8,7 +8,17 @@ from gantry.util import k8s, spec
 
 IDEAL_SAMPLE = 5
 DEFAULT_CPU_REQUEST = 1.0
-DEFAULT_MEM_REQUEST = 2000 * 1_000_000  # 2GB in bytes
+DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
+EXPENSIVE_VARIANTS = {
+    "sycl",
+    "mpi",
+    "rocm",
+    "cuda",
+    "python",
+    "fortran",
+    "openmp",
+    "hdf5",
+}
 
 
 async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
@@ -30,11 +40,12 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
             "mem_request": DEFAULT_MEM_REQUEST,
         }
     else:
-        # mapping of sample: [1] cpu_mean, [2] cpu_max, [3] mem_mean, [4] mem_max
+        # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         predictions = {
             # averages the respective metric in the sample
-            "cpu_request": round(sum([build[1] for build in sample]) / len(sample)),
-            "mem_request": sum([build[3] for build in sample]) / len(sample),
+            # cpu should always be whole number
+            "cpu_request": round(sum([build[0] for build in sample]) / len(sample)),
+            "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
     ensure_higher_pred(predictions, build["package"]["name"])
@@ -97,69 +108,85 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
     }
 
     # ranked in order of priority, the params we would like to match on
-    param_combos = [
-        ("pkg_name", "pkg_version", "compiler_name", "compiler_version"),
-        ("pkg_name", "compiler_name", "compiler_version"),
-        ("pkg_name", "pkg_version", "compiler_name"),
-        ("pkg_name", "compiler_name"),
-        ("pkg_name", "pkg_version"),
-        ("pkg_name",),
-    ]
+    param_combos = (
+        (
+            "pkg_name",
+            "pkg_variants",
+            "pkg_version",
+            "compiler_name",
+            "compiler_version",
+        ),
+        ("pkg_name", "pkg_variants", "compiler_name", "compiler_version"),
+        ("pkg_name", "pkg_variants", "pkg_version", "compiler_name"),
+        ("pkg_name", "pkg_variants", "compiler_name"),
+        ("pkg_name", "pkg_variants", "pkg_version"),
+        ("pkg_name", "pkg_variants"),
+    )
 
-    for combo in param_combos:
-        # filter by the params we want
-        condition_values = [flat_build[param] for param in combo]
-        # we want at least MIN_TRAIN_SAMPLE +1/= rows
-        query = f"""
-        SELECT pkg_variants, cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
-        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in combo)}
-        ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
-        """
-
-        async with db.execute(query, condition_values) as cursor:
+    async def select_sample(query: str, filters: dict, extra_params: list = []) -> list:
+        async with db.execute(query, list(filters.values()) + extra_params) as cursor:
             sample = await cursor.fetchall()
-            sample = filter_variants(sample, flat_build)
             # we can accept the sample if it's 1 shorter
             if len(sample) >= IDEAL_SAMPLE - 1:
                 return sample
-            # continue if we didn't find enough rows
+        return []
+
+    for combo in param_combos:
+        filters = {param: flat_build[param] for param in combo}
+
+        # the first attempt at getting a sample is to match on all the params
+        # within this combo, variants included
+        query = f"""
+        SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
+        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
+        ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
+        """
+
+        if sample := await select_sample(query, filters):
+            return sample
+
+        # if we are not able to get a sufficient sample, we'll try to filter
+        # by expensive variants, rather than an exact variant match
+
+        filters.pop("pkg_variants")
+        variants = spec.spec_variants(flat_build["pkg_variants"])
+
+        exp_variant_conditions = []
+        exp_variant_values = []
+
+        # iterate through all the expensive variants and create a set of conditions
+        # for the select query
+        for var in EXPENSIVE_VARIANTS:
+            if var in variants:
+                # if the client has queried for an expensive variant, we want to ensure
+                # that the sample has the same exact value
+                exp_variant_conditions.append(
+                    f"json_extract(pkg_variants, '$.{var}')=?"
+                )
+                exp_variant_values.append(int(variants.get(var, 0)))
+            else:
+                # if an expensive variant was not queried for,
+                # we want to make sure that the variant was not set within the sample
+                # as we want to ensure that the sample is not biased towards
+                # the presence of expensive variants (or lack thereof)
+                exp_variant_conditions.append(
+                    f"json_extract(pkg_variants, '$.{var}') IS NULL"
+                )
+
+        query = f"""
+        SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
+        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
+        AND {' AND '.join(exp_variant_conditions)}
+        ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
+        """
+
+        if sample := await select_sample(query, filters, exp_variant_values):
+            return sample
+
+        # go to the next combo, we want to ensure that expensive variants
+        # are taken into account
 
     return []
-
-
-def filter_variants(sample: list, build: dict) -> list:
-    """
-    Filter the sample to match the build's variants.
-    """
-
-    EXPENSIVE_VARIANTS = {
-        "sycl",
-        "mpi",
-        "rocm",
-        "cuda",
-        "python",
-        "fortran",
-        "openmp",
-        "hdf5",
-    }
-
-    matched_rows = []
-    build_variants = spec.spec_variants(build["pkg_variants"])
-
-    # we prefer exact matches but
-    # we can accept the row if all the values of
-    # EXPENSIVE_VARIANTS match
-    for row in sample:
-        row_variants = spec.spec_variants(row[0])
-        if build_variants == row_variants:
-            matched_rows.append(row)
-        elif all(
-            row_variants.get(variant) == build_variants.get(variant)
-            for variant in EXPENSIVE_VARIANTS
-        ):
-            matched_rows.append(row)
-
-    return matched_rows
 
 
 def ensure_higher_pred(prediction: dict, pkg_name: str):
