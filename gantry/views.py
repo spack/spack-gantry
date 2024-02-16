@@ -7,6 +7,7 @@ from aiohttp import web
 
 from gantry.routes.collection import fetch_job
 
+logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
 
 
@@ -21,7 +22,7 @@ async def collect_job(request: web.Request) -> web.Response:
         return web.Response(status=401, text="invalid token")
 
     if request.headers.get("X-Gitlab-Event") != "Job Hook":
-        logging.error(f"invalid event type {request.headers.get('X-Gitlab-Event')}")
+        logger.error(f"invalid event type {request.headers.get('X-Gitlab-Event')}")
         # return 200 so gitlab doesn't disable the webhook -- this is not fatal
         return web.Response(status=200)
 

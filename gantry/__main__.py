@@ -1,3 +1,4 @@
+import logging
 import os
 
 import aiosqlite
@@ -6,6 +7,13 @@ from aiohttp import web
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.views import routes
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=os.environ.get("LOG_LEVEL", "WARNING"),
+    format="[%(asctime)s] (%(name)s:%(lineno)d) %(levelname)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
 
 
 async def init_db(app: web.Application):

@@ -2,6 +2,8 @@ import logging
 
 import aiosqlite
 
+logger = logging.getLogger(__name__)
+
 
 async def get_node(db: aiosqlite.Connection, uuid: str) -> int | None:
     """return the primary key if found, otherwise return None"""
@@ -20,12 +22,7 @@ async def job_exists(db: aiosqlite.Connection, gl_id: int) -> bool:
         "select id from jobs where gitlab_id = ?", (gl_id,)
     ) as cursor:
         if await cursor.fetchone():
-            logging.warning(
-                f"""
-                job {gl_id} already in database.
-                check why multiple requests are being sent.
-                """
-            )
+            logger.warning(f"job {gl_id} exists. look into duplicate webhook calls.")
             return True
 
     return False

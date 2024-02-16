@@ -10,6 +10,8 @@ from gantry.models import Job
 
 MB_IN_BYTES = 1_000_000
 
+logger = logging.getLogger(__name__)
+
 
 async def fetch_job(
     payload: dict,
@@ -65,7 +67,7 @@ async def fetch_job(
         node_id = await fetch_node(db_conn, prometheus, node_hostname, job.midpoint)
     except IncompleteData as e:
         # missing data, skip this job
-        logging.error(f"{e} job={job.gl_id}")
+        logger.error(f"{e} job={job.gl_id}")
         return
 
     await db.insert_job(
