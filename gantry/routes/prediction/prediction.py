@@ -185,9 +185,6 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
         if sample := await select_sample(query, filters, exp_variant_values):
             return sample
 
-        # go to the next combo, we want to ensure that expensive variants
-        # are taken into account
-
     return []
 
 
