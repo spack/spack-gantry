@@ -6,6 +6,8 @@ import aiosqlite
 from gantry.routes.prediction.current_mapping import pkg_mappings
 from gantry.util import k8s, spec
 
+logger = logging.getLogger(__name__)
+
 IDEAL_SAMPLE = 5
 DEFAULT_CPU_REQUEST = 1.0
 DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
@@ -52,10 +54,10 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
 
     # warn if the prediction is below some thresholds
     if predictions["cpu_request"] < 0.25:
-        logging.warning(f"Warning: CPU request for {build['hash']} is below 0.25 cores")
+        logger.warning(f"Warning: CPU request for {build['hash']} is below 0.25 cores")
         predictions["cpu_request"] = DEFAULT_CPU_REQUEST
     if predictions["mem_request"] < 10_000_000:
-        logging.warning(f"Warning: Memory request for {build['hash']} is below 10MB")
+        logger.warning(f"Warning: Memory request for {build['hash']} is below 10MB")
         predictions["mem_request"] = DEFAULT_MEM_REQUEST
 
     # convert predictions to k8s friendly format
