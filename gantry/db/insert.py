@@ -1,3 +1,5 @@
+import logging
+
 import aiosqlite
 
 from gantry.db.get import get_node
@@ -35,15 +37,20 @@ async def insert_node(db: aiosqlite.Connection, node: dict) -> int:
             "nodes",
             node,
             # deal with races
+            # this also ignores the not-null constraint
+            # so we need to make sure the node is valid before inserting
             ignore=True,
         )
     ) as cursor:
-        pk = cursor.lastrowid
+        # this check ensures that something was inserted
+        # and not relying on lastrowid, which could be anything
+        if cursor.rowcount > 0:
+            pk = cursor.lastrowid
 
-    if pk == 0:
-        # the ignore part of the query was triggered, some other call
-        # must have inserted the node before this one
-        pk = await get_node(db, node["uuid"])
+    pk = await get_node(db, node["uuid"])
+
+    if pk is None:
+        logging.error(f"node not inserted: {node}. data is likely missing")
 
     return pk
 
@@ -60,4 +67,8 @@ async def insert_job(db: aiosqlite.Connection, job: dict) -> int:
             ignore=True,
         )
     ) as cursor:
-        return cursor.lastrowid
+        if cursor.rowcount > 0:
+            return cursor.lastrowid
+
+    logging.error(f"job not inserted: {job}. data is likely missing")
+    return None
