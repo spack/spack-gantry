@@ -26,15 +26,3 @@ async def job_exists(db: aiosqlite.Connection, gl_id: int) -> bool:
             return True
 
     return False
-
-
-async def ghost_exists(db: aiosqlite.Connection, gl_id: int) -> bool:
-    """return if the ghost job exists in the database"""
-
-    async with db.execute(
-        "select id from ghost_jobs where gitlab_id = ?", (gl_id,)
-    ) as cursor:
-        if await cursor.fetchone():
-            return True
-
-    return False

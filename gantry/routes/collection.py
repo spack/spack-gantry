@@ -48,7 +48,6 @@ async def fetch_job(
         # uo runners are not in Prometheus
         or payload["runner"]["description"].startswith("uo")
         or await db.job_exists(db_conn, job.gl_id)  # job already in the database
-        or await db.ghost_exists(db_conn, job.gl_id)  # ghost already in db
     ):
         return
 
@@ -56,6 +55,7 @@ async def fetch_job(
     job_log = await gitlab.job_log(job.gl_id)
     is_ghost = "No need to rebuild" in job_log
     if is_ghost:
+        logging.warning(f"job {job.gl_id} is a ghost, skipping")
         return
 
     try:
