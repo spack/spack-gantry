@@ -5,8 +5,8 @@ from gantry.tests.defs.db import NODE_INSERT_DICT
 async def test_node_insert_race(db_conn):
     """
     Tests the situation where two identical jobs are inserted around the same time.
-    The first insert should insert the node and the second should get the id of the node.
-    We differentiate the two inserts by their id, but are identical otherwise.
+    The first call should insert the node and the second should return the id
+    of the first.
     """
     # the id of this row is 1
     with open("gantry/tests/sql/insert_node.sql") as f:

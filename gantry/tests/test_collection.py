@@ -131,7 +131,7 @@ async def test_invalid_usage(db_conn, gitlab, prometheus):
 
 
 async def test_job_node_inserted(db_conn, gitlab, prometheus):
-    """Tests that the job and node are inserted into the database after a successful fetch_job call"""
+    """Tests that the job and node are in the database after calling fetch_node"""
 
     await fetch_job(VALID_JOB, db_conn, gitlab, prometheus)
     # as the first records in the database, the ids should be 1
@@ -144,16 +144,18 @@ async def test_job_node_inserted(db_conn, gitlab, prometheus):
 
 
 async def test_node_exists(db_conn, prometheus):
-    """Tests that fetch_node returns the existing node id when the node already in database"""
+    """Tests that fetch_node returns the existing node id when the node
+    is already in the database"""
 
-    # when fetch_node is called, only two prometheus requests are made (see comment above PROMETHEUS_REQS)
+    # when fetch_node is called, only two prometheus requests are made
+    # (see comment above PROMETHEUS_REQS)
     prometheus._query.side_effect = [
         PROMETHEUS_REQS["node_info"],
         PROMETHEUS_REQS["node_labels"],
     ]
 
-    # in the inserted row, the node id is 2 because if if the fetch_node call inserts a new node,
-    # the id would be set to 1
+    # in the inserted row, the node id is 2 because if the fetch_node call
+    # inserts a new node, the id would be set to 1
     with open("gantry/tests/sql/insert_node.sql") as f:
         await db_conn.executescript(f.read())
 
