@@ -45,7 +45,7 @@ async def insert_node(db: aiosqlite.Connection, node: dict) -> int:
         # this check ensures that something was inserted
         # and not relying on lastrowid, which could be anything
         if cursor.rowcount > 0:
-            pk = cursor.lastrowid
+            return cursor.lastrowid
 
     pk = await get_node(db, node["uuid"])
 
