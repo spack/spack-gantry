@@ -11,8 +11,10 @@ In order for the application to run, you'll need to supply two things to the ima
 When running locally, you can get by with supplying an env file and volume, like so:
 
 ```bash
-podman run -it -p 8080:8080 --env-file .env -v DB_PATH:/db gantry
+podman run -it -p 8080:8080 --env-file .env -v LOCAL_DB_PATH:DB_FILE gantry
 ```
+
+Where `LOCAL_DB_PATH` is the absolute path to the database file on your local system. `DB_FILE` is where you would like the application to access the database. Make sure this lines up with your environment.
 
 When running Gantry within Kubernetes, you could use [persistent volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/). The only requirement is that the database should exist outside the container for backup and persistence purposes.
 
