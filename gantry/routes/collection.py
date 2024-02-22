@@ -70,7 +70,7 @@ async def fetch_job(
         logger.error(f"{e} job={job.gl_id}")
         return
 
-    await db.insert_job(
+    job_id = await db.insert_job(
         db_conn,
         {
             "node": node_id,
@@ -89,7 +89,7 @@ async def fetch_job(
     # we don't accidentally commit a node without a job
     await db_conn.commit()
 
-    return
+    return job_id
 
 
 async def fetch_node(
