@@ -1,0 +1,14 @@
+spack:
+  specs:
+  - python
+  - py-aiohttp
+  - py-pytest
+  - py-pytest-asyncio
+  - py-flake8
+  - py-black
+  - py-isort
+  - py-aiosqlite
+  - sqlite
+  view: true
+  concretizer:
+    unify: true
