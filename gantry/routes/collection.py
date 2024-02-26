@@ -45,6 +45,8 @@ async def fetch_job(
     if (
         job.status != "success"
         or not job.valid_build_name  # is not a build job
+        # some jobs don't have runners..?
+        or payload["runner"] is None
         # uo runners are not in Prometheus
         or payload["runner"]["description"].startswith("uo")
         or await db.job_exists(db_conn, job.gl_id)  # job already in the database
