@@ -15,8 +15,11 @@ class Job:
         self.status = status
         self.name = name
         self.gl_id = gl_id
-        self.start = datetime.fromisoformat(start).timestamp()
-        self.end = datetime.fromisoformat(end).timestamp()
+        # handle jobs that haven't started or finished
+        if start:
+            self.start = datetime.fromisoformat(start).timestamp()
+        if end:
+            self.end = datetime.fromisoformat(end).timestamp()
         self.ref = ref
 
     @property
