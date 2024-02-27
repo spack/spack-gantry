@@ -1,5 +1,7 @@
 import asyncio
+import json
 import logging
+import os
 
 import aiosqlite
 
@@ -50,7 +52,8 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
             "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
-    ensure_higher_pred(predictions, build["package"]["name"])
+    if os.environ.get("PREDICT_STRATEGY") == "ensure_higher":
+        ensure_higher_pred(predictions, build["package"]["name"])
 
     # warn if the prediction is below some thresholds
     if predictions["cpu_request"] < 0.25:
@@ -101,10 +104,12 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
         list of lists with cpu_mean, cpu_max, mem_mean, mem_max
     """
 
+    pkg_variants = spec.spec_variants(build["package"]["variants"])
     flat_build = {
         "pkg_name": build["package"]["name"],
         "pkg_version": build["package"]["version"],
-        "pkg_variants": build["package"]["variants"],
+        # variants are represented as JSON in the database
+        "pkg_variants": json.dumps(pkg_variants),
         "compiler_name": build["compiler"]["name"],
         "compiler_version": build["compiler"]["version"],
     }
@@ -151,7 +156,6 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
         # by expensive variants, rather than an exact variant match
 
         filters.pop("pkg_variants")
-        variants = spec.spec_variants(flat_build["pkg_variants"])
 
         exp_variant_conditions = []
         exp_variant_values = []
@@ -159,13 +163,13 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
         # iterate through all the expensive variants and create a set of conditions
         # for the select query
         for var in EXPENSIVE_VARIANTS:
-            if var in variants:
+            if var in pkg_variants:
                 # if the client has queried for an expensive variant, we want to ensure
                 # that the sample has the same exact value
                 exp_variant_conditions.append(
                     f"json_extract(pkg_variants, '$.{var}')=?"
                 )
-                exp_variant_values.append(int(variants.get(var, 0)))
+                exp_variant_values.append(int(pkg_variants.get(var, 0)))
             else:
                 # if an expensive variant was not queried for,
                 # we want to make sure that the variant was not set within the sample
