@@ -3,9 +3,6 @@ from gantry.util.spec import spec_variants
 
 def validate_payload(payload: dict) -> bool:
     """Ensures that the payload from the client is valid."""
-    # must be a dict or a list
-    if not isinstance(payload, dict):
-        return False
 
     if not (
         # item must be dict
