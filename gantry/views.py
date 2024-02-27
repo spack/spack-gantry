@@ -6,7 +6,7 @@ import os
 from aiohttp import web
 
 from gantry.routes.collection import fetch_job
-from gantry.routes.prediction.prediction import predict_bulk, predict_single
+from gantry.routes.prediction.prediction import predict_single
 from gantry.util.prediction import validate_payload
 
 logger = logging.getLogger(__name__)
@@ -49,14 +49,13 @@ async def allocation(request: web.Request) -> web.Response:
         "package": {
             "name": "string",
             "version": "string"
+            "variants": "string"
         },
         "compiler": {
             "name": "string",
             "version": "string"
         }
     }
-
-    also accepts a list of the above objects
 
     returns:
 
@@ -67,9 +66,6 @@ async def allocation(request: web.Request) -> web.Response:
             "mem_request": "float",
         }
     }
-
-    or a list of the above objects
-
     """
     payload = request.query.get("query")
 
@@ -84,9 +80,4 @@ async def allocation(request: web.Request) -> web.Response:
     if not validate_payload(payload):
         return web.Response(status=400, text="invalid payload")
 
-    if isinstance(payload, dict):
-        response = await predict_single(request.app["db"], payload)
-    elif isinstance(payload, list):
-        response = await predict_bulk(request.app["db"], payload)
-
-    return web.json_response(response)
+    return web.json_response(await predict_single(request.app["db"], payload))

@@ -1,4 +1,3 @@
-import asyncio
 import json
 import logging
 import os
@@ -80,18 +79,6 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
             "KUBERNETES_MEMORY_REQUEST": predictions["mem_request"],
         },
     }
-
-
-async def predict_bulk(db: aiosqlite.Connection, builds: list) -> list:
-    """
-    Handles a bulk request of builds
-
-    args:
-        builds: list of dicts (see predict_single)
-    returns: see predict_single
-    """
-
-    return await asyncio.gather(*(predict_single(db, build) for build in builds))
 
 
 async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
