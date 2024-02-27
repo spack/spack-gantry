@@ -2,13 +2,7 @@ import pytest
 
 from gantry.clients.prometheus import util
 from gantry.clients.prometheus.prometheus import PrometheusClient
-from gantry.tests.defs.prometheus import (
-    ENCODED_QUERY_DICT,
-    ENCODED_QUERY_STR,
-    INVALID_QUERY,
-    QUERY_DICT,
-    QUERY_STR,
-)
+from gantry.tests.defs import prometheus as defs
 
 
 def test_cookie_set():
@@ -19,7 +13,7 @@ def test_cookie_set():
 
 def test_process_query():
     """Test that a query is parsed and encoded properly, from both dict and string"""
-    assert util.process_query(QUERY_DICT) == ENCODED_QUERY_DICT
-    assert util.process_query(QUERY_STR) == ENCODED_QUERY_STR
+    assert util.process_query(defs.QUERY_DICT) == defs.ENCODED_QUERY_DICT
+    assert util.process_query(defs.QUERY_STR) == defs.ENCODED_QUERY_STR
     with pytest.raises(ValueError):
-        util.process_query(INVALID_QUERY)
+        util.process_query(defs.INVALID_QUERY)

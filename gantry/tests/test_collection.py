@@ -3,24 +3,7 @@ import pytest
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.routes.collection import fetch_job, fetch_node
-from gantry.tests.defs.collection import (
-    GHOST_JOB_LOG,
-    INSERTED_JOB,
-    INSERTED_NODE,
-    INVALID_JOB_NAME,
-    INVALID_JOB_STATUS,
-    INVALID_MEMORY_USAGE,
-    INVALID_RUNNER,
-    VALID_ANNOTATIONS,
-    VALID_CPU_USAGE,
-    VALID_JOB,
-    VALID_JOB_LOG,
-    VALID_MEMORY_USAGE,
-    VALID_NODE_INFO,
-    VALID_NODE_LABELS,
-    VALID_RESOURCE_LIMITS,
-    VALID_RESOURCE_REQUESTS,
-)
+from gantry.tests.defs import collection as defs
 
 # mapping of prometheus request shortcuts
 # to raw values that would be returned by resp.json()
@@ -29,13 +12,13 @@ from gantry.tests.defs.collection import (
 # if the order in which PrometheusClient._query is called changes,
 # this dict must be updated
 PROMETHEUS_REQS = {
-    "job_annotations": VALID_ANNOTATIONS,
-    "job_resources": VALID_RESOURCE_REQUESTS,
-    "job_limits": VALID_RESOURCE_LIMITS,
-    "job_memory_usage": VALID_MEMORY_USAGE,
-    "job_cpu_usage": VALID_CPU_USAGE,
-    "node_info": VALID_NODE_INFO,
-    "node_labels": VALID_NODE_LABELS,
+    "job_annotations": defs.VALID_ANNOTATIONS,
+    "job_resources": defs.VALID_RESOURCE_REQUESTS,
+    "job_limits": defs.VALID_RESOURCE_LIMITS,
+    "job_memory_usage": defs.VALID_MEMORY_USAGE,
+    "job_cpu_usage": defs.VALID_CPU_USAGE,
+    "node_info": defs.VALID_NODE_INFO,
+    "node_labels": defs.VALID_NODE_LABELS,
 }
 
 
@@ -45,7 +28,7 @@ async def gitlab(mocker):
 
     # mock the request to the gitlab api
     # default is to return normal log that wouldn't be detected as a ghost job
-    mocker.patch.object(GitlabClient, "_request", return_value=VALID_JOB_LOG)
+    mocker.patch.object(GitlabClient, "_request", return_value=defs.VALID_JOB_LOG)
     return GitlabClient("", "")
 
 
@@ -63,14 +46,14 @@ async def prometheus(mocker):
 @pytest.mark.parametrize(
     "key, value",
     [
-        ("build_status", INVALID_JOB_STATUS),
-        ("build_name", INVALID_JOB_NAME),
-        ("runner", INVALID_RUNNER),
+        ("build_status", defs.INVALID_JOB_STATUS),
+        ("build_name", defs.INVALID_JOB_NAME),
+        ("runner", defs.INVALID_RUNNER),
     ],
 )
 async def test_invalid_gitlab_fields(db_conn, gitlab, prometheus, key, value):
     """Tests behavior when invalid data from Gitlab is passed to fetch_job"""
-    payload = VALID_JOB.copy()
+    payload = defs.VALID_JOB.copy()
     payload[key] = value
 
     assert await fetch_job(payload, db_conn, gitlab, prometheus) is None
@@ -88,14 +71,14 @@ async def test_job_exists(db_conn):
     with open("gantry/tests/sql/insert_job.sql") as f:
         await db_conn.executescript(f.read())
 
-    assert await fetch_job(VALID_JOB, db_conn, None, None) is None
+    assert await fetch_job(defs.VALID_JOB, db_conn, None, None) is None
 
 
 async def test_ghost_job(db_conn, gitlab, mocker):
     """Tests that a ghost job is detected"""
 
-    mocker.patch.object(gitlab, "_request", return_value=GHOST_JOB_LOG)
-    assert await fetch_job(VALID_JOB, db_conn, gitlab, None) is None
+    mocker.patch.object(gitlab, "_request", return_value=defs.GHOST_JOB_LOG)
+    assert await fetch_job(defs.VALID_JOB, db_conn, gitlab, None) is None
 
 
 @pytest.mark.parametrize(
@@ -117,7 +100,7 @@ async def test_missing_data(db_conn, gitlab, prometheus, req):
     # for each req in PROMETHEUS_REQS, set it to an empty dict
     p[req] = {}
     prometheus._query.side_effect = p.values()
-    assert await fetch_job(VALID_JOB, db_conn, gitlab, prometheus) is None
+    assert await fetch_job(defs.VALID_JOB, db_conn, gitlab, prometheus) is None
 
 
 async def test_invalid_usage(db_conn, gitlab, prometheus):
@@ -125,22 +108,22 @@ async def test_invalid_usage(db_conn, gitlab, prometheus):
 
     p = PROMETHEUS_REQS.copy()
     # could also be cpu usage
-    p["job_memory_usage"] = INVALID_MEMORY_USAGE
+    p["job_memory_usage"] = defs.INVALID_MEMORY_USAGE
     prometheus._query.side_effect = p.values()
-    assert await fetch_job(VALID_JOB, db_conn, gitlab, prometheus) is None
+    assert await fetch_job(defs.VALID_JOB, db_conn, gitlab, prometheus) is None
 
 
 async def test_job_node_inserted(db_conn, gitlab, prometheus):
     """Tests that the job and node are in the database after calling fetch_node"""
 
-    await fetch_job(VALID_JOB, db_conn, gitlab, prometheus)
+    await fetch_job(defs.VALID_JOB, db_conn, gitlab, prometheus)
     # as the first records in the database, the ids should be 1
     async with db_conn.execute("SELECT * FROM jobs WHERE id=?", (1,)) as cursor:
         job = await cursor.fetchone()
     async with db_conn.execute("SELECT * FROM nodes WHERE id=?", (1,)) as cursor:
         node = await cursor.fetchone()
-    assert job == INSERTED_JOB
-    assert node == INSERTED_NODE
+    assert job == defs.INSERTED_JOB
+    assert node == defs.INSERTED_NODE
 
 
 async def test_node_exists(db_conn, prometheus):

@@ -1,5 +1,5 @@
 from gantry.db.insert import insert_job, insert_node
-from gantry.tests.defs.db import NODE_INSERT_DICT
+from gantry.tests.defs import db as defs
 
 
 async def test_node_insert_race(db_conn):
@@ -13,7 +13,7 @@ async def test_node_insert_race(db_conn):
         await db_conn.executescript(f.read())
 
     # the id of NODE_INSERT_DICT is 2, but the output should be 1
-    assert await insert_node(db_conn, NODE_INSERT_DICT) == 2
+    assert await insert_node(db_conn, defs.NODE_INSERT_DICT) == 2
 
 
 async def test_insert_node_incomplete(db_conn):
