@@ -7,6 +7,7 @@ from aiohttp import web
 
 from gantry.routes.collection import fetch_job
 from gantry.routes.prediction.prediction import predict_bulk, predict_single
+from gantry.util.prediction import validate_payload
 
 logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
@@ -79,36 +80,6 @@ async def allocation(request: web.Request) -> web.Response:
         payload = json.loads(payload)
     except json.decoder.JSONDecodeError:
         return web.Response(status=400, text="invalid json")
-
-    def validate_payload(payload: dict) -> bool:
-        """Ensures that the payload from the client is valid."""
-        # must be a dict or a list
-        if not isinstance(payload, (dict, list)):
-            return False
-
-        if isinstance(payload, dict):
-            # put dict in list for iteration
-            payload = [payload]
-
-        for item in payload:
-            if not (
-                # item must be dict
-                isinstance(item, dict)
-                # must contain hash field
-                and isinstance(item.get("hash"), str)
-                # must contain name and version
-                # for both package and compiler
-                and all(
-                    isinstance(item.get(field, {}).get(key), str)
-                    for field in ["package", "compiler"]
-                    for key in ["name", "version"]
-                )
-                # look for variants inside package
-                and isinstance(item.get("package", {}).get("variants"), str)
-            ):
-                return False
-
-        return True
 
     if not validate_payload(payload):
         return web.Response(status=400, text="invalid payload")
