@@ -16,10 +16,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           cache: 'pip'
-          cache-dependency-path: '.github/workflows/requirements/unit-tests.txt'
+          cache-dependency-path: |
+            'requirements.txt'
+            '.github/workflows/requirements/unit-tests.txt'
 
       - name: Install Python dependencies
         run: |
+          pip install -r requirements.txt
           pip install -r .github/workflows/requirements/unit-tests.txt
 
       - name: Run Unit Tests with Pytest
