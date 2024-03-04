@@ -7,8 +7,6 @@ def validate_payload(payload: dict) -> bool:
     if not (
         # item must be dict
         isinstance(payload, dict)
-        # must contain hash field
-        and isinstance(payload.get("hash"), str)
         # must contain name and version
         # for both package and compiler
         and all(
