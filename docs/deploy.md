@@ -28,9 +28,6 @@ The following variables should be exposed to the container. Those **bolded** are
 - **`GITLAB_API_TOKEN`** - this token should have API read access
 - **`GITLAB_WEBHOOK_TOKEN`** - coordinate this value with the collection webhook
 - **`DB_FILE`** - path where the application can access the SQLite file
-- `MAX_GET_SIZE` - the maximum `GET` request (in bytes), default is 8MB
-- `GANTRY_HOST` - web app hostname, default is `localhost`
-- `GANTRY_PORT` - web app port, default is `8080`
 - `PREDICT_STRATEGY` - optional mode for the prediction algorithm
     - options: 
         - `ensure_higher`: if the predicted resource usage is below current levels, it will disregard the prediction and keep what would be allocated without Gantry's intervention
