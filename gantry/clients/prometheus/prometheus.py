@@ -7,6 +7,8 @@ from gantry.clients.prometheus import util
 from gantry.clients.prometheus.job import PrometheusJobClient
 from gantry.clients.prometheus.node import PrometheusNodeClient
 
+logger = logging.getLogger(__name__)
+
 
 class PrometheusClient:
     def __init__(self, base_url: str, auth_cookie: str = ""):
@@ -72,7 +74,7 @@ class PrometheusClient:
                 try:
                     return self.prettify_res(await resp.json())
                 except aiohttp.ContentTypeError:
-                    logging.error(
+                    logger.error(
                         """Prometheus query failed with unexpected response.
                         The cookie may have expired."""
                     )
@@ -87,7 +89,7 @@ class PrometheusClient:
         }
 
         if result_type not in values_dict:
-            logging.error(f"Prometheus response type {result_type} not supported")
+            logger.error(f"Prometheus response type {result_type} not supported")
             return []
 
         return [
