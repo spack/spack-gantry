@@ -4,6 +4,8 @@ import aiosqlite
 
 from gantry.db.get import get_node
 
+logger = logging.getLogger(__name__)
+
 
 def insert_dict(table: str, input: dict, ignore=False) -> tuple[str, tuple]:
     """
@@ -50,7 +52,7 @@ async def insert_node(db: aiosqlite.Connection, node: dict) -> int:
     pk = await get_node(db, node["uuid"])
 
     if pk is None:
-        logging.error(f"node not inserted: {node}. data is likely missing")
+        logger.error(f"node not inserted: {node}. data is likely missing")
 
     return pk
 
@@ -70,5 +72,5 @@ async def insert_job(db: aiosqlite.Connection, job: dict) -> int:
         if cursor.rowcount > 0:
             return cursor.lastrowid
 
-    logging.error(f"job not inserted: {job}. data is likely missing")
+    logger.error(f"job not inserted: {job}. data is likely missing")
     return None
