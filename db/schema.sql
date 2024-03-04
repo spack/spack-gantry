@@ -1,3 +1,5 @@
+PRAGMA foreign_keys = ON;
+
 CREATE TABLE nodes (
     id INTEGER PRIMARY KEY,
     uuid TEXT NOT NULL UNIQUE,
@@ -27,7 +29,7 @@ CREATE TABLE jobs (
     stack TEXT NOT NULL,
     build_jobs INTEGER NOT NULL,
     cpu_request REAL NOT NULL,
-    cpu_limit REAL, -- this can be null becasue it's currently not set
+    cpu_limit REAL, -- this can be null because it's currently not set
     cpu_mean REAL NOT NULL,
     cpu_median REAL NOT NULL,
     cpu_max REAL NOT NULL,

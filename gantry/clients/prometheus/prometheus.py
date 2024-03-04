@@ -39,7 +39,7 @@ class PrometheusClient:
 
         query = util.process_query(query)
         url = f"{self.base_url}/query?query={query}&time={time}"
-        return await self._query(url)
+        return self.prettify_res(await self._query(url))
 
     async def query_range(self, query: str | dict, start: int, end: int) -> list:
         """Query Prometheus for a range of values
@@ -64,7 +64,7 @@ class PrometheusClient:
             f"end={end}&"
             f"step={step}s"
         )
-        return await self._query(url)
+        return self.prettify_res(await self._query(url))
 
     async def _query(self, url: str) -> list:
         """Query Prometheus with a query string"""
@@ -72,7 +72,7 @@ class PrometheusClient:
             # submit cookie with request
             async with session.get(url, cookies=self.cookies) as resp:
                 try:
-                    return self.prettify_res(await resp.json())
+                    return await resp.json()
                 except aiohttp.ContentTypeError:
                     logger.error(
                         """Prometheus query failed with unexpected response.
@@ -81,7 +81,7 @@ class PrometheusClient:
                     return {}
 
     def prettify_res(self, response: dict) -> list:
-        """Process Prometheus response into an arrray of dicts with {label: value}"""
+        """Process Prometheus response into a list of dicts with {label: value}"""
         result_type = response.get("data", {}).get("resultType")
         values_dict = {
             "matrix": "values",

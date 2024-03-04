@@ -1,0 +1,2 @@
+--- primary key is set to 2 to set up the test that checks for race conditions
+INSERT INTO nodes VALUES(2,'ec253b04-b1dc-f08b-acac-e23df83b3602','ip-192-168-86-107.ec2.internal',24.0,196608000000.0,'amd64','linux','i3en.6xlarge');
