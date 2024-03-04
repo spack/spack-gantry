@@ -56,10 +56,10 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
 
     # warn if the prediction is below some thresholds
     if predictions["cpu_request"] < 0.25:
-        logger.warning(f"Warning: CPU request for {build['hash']} is below 0.25 cores")
+        logger.warning(f"Warning: CPU request for {build} is below 0.25 cores")
         predictions["cpu_request"] = DEFAULT_CPU_REQUEST
     if predictions["mem_request"] < 10_000_000:
-        logger.warning(f"Warning: Memory request for {build['hash']} is below 10MB")
+        logger.warning(f"Warning: Memory request for {build} is below 10MB")
         predictions["mem_request"] = DEFAULT_MEM_REQUEST
 
     # convert predictions to k8s friendly format
@@ -70,7 +70,6 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
             predictions[k] = k8s.convert_bytes(v)
 
     return {
-        "hash": build["hash"],
         "variables": {
             # spack uses these env vars to set the resource requests
             # set them here at the last minute to avoid using these vars

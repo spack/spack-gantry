@@ -45,7 +45,6 @@ async def allocation(request: web.Request) -> web.Response:
     acceptable payload:
 
     {
-        "hash": "string",
         "package": {
             "name": "string",
             "version": "string"
@@ -60,7 +59,6 @@ async def allocation(request: web.Request) -> web.Response:
     returns:
 
     {
-        "hash": "string",
         "variables": {
             "cpu_request": "float",
             "mem_request": "float",
