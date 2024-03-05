@@ -23,7 +23,7 @@ We could also figure out the upper threshold by calculating
 
 = skimpiest predicted limit / maximum usage for that job
 
-However, when doing this, I've stumbled upon packages that have unpredictable usage patterns that can swing from 200-400% of each other (with no discernable differences).
+However, when doing this, I've stumbled upon packages that have unpredictable usage patterns that can swing from 200-400% of each other (with no discernible differences).
 
 More research and care will be needed when we finally decide to implement limit prediction.
 

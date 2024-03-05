@@ -1,7 +1,5 @@
 # `spack-gantry`
 
-
-
 ## Table of Contents
 
 1. [Context](context.md)
@@ -9,3 +7,4 @@
 3. [Architecture](arch.md)
 4. [Prediction](prediction.md)
 5. [Deployment](deploy.md)
+6. [API Endpoints](api.md)
