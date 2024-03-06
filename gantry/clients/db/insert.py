@@ -2,7 +2,7 @@ import logging
 
 import aiosqlite
 
-from gantry.db.get import get_node
+from gantry.clients.db.get import get_node
 
 logger = logging.getLogger(__name__)
 
