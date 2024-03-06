@@ -42,6 +42,9 @@ async def collect_job(request: web.Request) -> web.Response:
 @routes.get("/v1/allocation")
 async def allocation(request: web.Request) -> web.Response:
     """
+    Given a spec in JSON format, return environment variables
+    that set resource allocations based on historical data.
+
     acceptable payload:
 
     {
@@ -59,11 +62,12 @@ async def allocation(request: web.Request) -> web.Response:
     returns:
 
     {
-        "variables": {
-            "cpu_request": "float",
-            "mem_request": "float",
-        }
+        "variables": {}
     }
+
+    the variables key contains the environment variables
+    that should be set within the build environment
+    example: KUBERNETES_CPU_REQUEST, KUBERNETES_CPU_LIMIT, etc.
     """
     payload = request.query.get("query")
 
