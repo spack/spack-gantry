@@ -23,5 +23,6 @@ jobs:
 
       - name: Lint and Format Check with Flake8 and Black
         run: |
-          black --diff --check .
-          flake8 gantry/
+          black --diff --check gantry
+          isort --diff --check gantry
+          flake8 gantry
