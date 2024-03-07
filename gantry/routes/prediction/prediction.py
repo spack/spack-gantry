@@ -5,7 +5,7 @@ import os
 import aiosqlite
 
 from gantry.routes.prediction.current_mapping import pkg_mappings
-from gantry.util import k8s, spec
+from gantry.util import k8s
 
 logger = logging.getLogger(__name__)
 
@@ -24,18 +24,19 @@ EXPENSIVE_VARIANTS = {
 }
 
 
-async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
+async def predict_single(db: aiosqlite.Connection, spec: dict) -> dict:
     """
-    Predict the resource usage of a build
+    Predict the resource usage of a spec
 
     args:
-        build: dict that must contain pkg name, pkg version, compiler, compiler version
+        spec: dict that contains pkg_name, pkg_version, pkg_variants,
+        compiler_name, compiler_version
     returns:
         dict of predicted resource usage: cpu_request, mem_request
         CPU in millicore, mem in MB
     """
 
-    sample = await get_sample(db, build)
+    sample = await get_sample(db, spec)
     predictions = {}
     if not sample:
         predictions = {
@@ -52,14 +53,14 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
         }
 
     if os.environ.get("PREDICT_STRATEGY") == "ensure_higher":
-        ensure_higher_pred(predictions, build["package"]["name"])
+        ensure_higher_pred(predictions, spec["pkg_name"])
 
     # warn if the prediction is below some thresholds
     if predictions["cpu_request"] < 0.25:
-        logger.warning(f"Warning: CPU request for {build} is below 0.25 cores")
+        logger.warning(f"Warning: CPU request for {spec} is below 0.25 cores")
         predictions["cpu_request"] = DEFAULT_CPU_REQUEST
     if predictions["mem_request"] < 10_000_000:
-        logger.warning(f"Warning: Memory request for {build} is below 10MB")
+        logger.warning(f"Warning: Memory request for {spec} is below 10MB")
         predictions["mem_request"] = DEFAULT_MEM_REQUEST
 
     # convert predictions to k8s friendly format
@@ -80,25 +81,21 @@ async def predict_single(db: aiosqlite.Connection, build: dict) -> dict:
     }
 
 
-async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
+async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
     """
     Selects a sample of builds to use for prediction
 
     args:
-        build: dict that must contain pkg name, pkg version, compiler, compiler version
+        spec: see predict_single
     returns:
         list of lists with cpu_mean, cpu_max, mem_mean, mem_max
     """
 
-    pkg_variants = spec.spec_variants(build["package"]["variants"])
-    flat_build = {
-        "pkg_name": build["package"]["name"],
-        "pkg_version": build["package"]["version"],
-        # variants are represented as JSON in the database
-        "pkg_variants": json.dumps(pkg_variants),
-        "compiler_name": build["compiler"]["name"],
-        "compiler_version": build["compiler"]["version"],
-    }
+    # store the pkg_variants as a dict which is used in some of the queries
+    pkg_variants = spec["pkg_variants"]
+    # variants are represented as JSON in the database
+    # so we convert the dict to a string for comparison
+    spec["pkg_variants"] = json.dumps(spec["pkg_variants"])
 
     # ranked in order of priority, the params we would like to match on
     param_combos = (
@@ -125,7 +122,7 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
         return []
 
     for combo in param_combos:
-        filters = {param: flat_build[param] for param in combo}
+        filters = {param: spec[param] for param in combo}
 
         # the first attempt at getting a sample is to match on all the params
         # within this combo, variants included
@@ -180,7 +177,7 @@ async def get_sample(db: aiosqlite.Connection, build: dict) -> list:
 
 def ensure_higher_pred(prediction: dict, pkg_name: str):
     """
-    Ensure that the prediction is higher than the current allocation
+    Ensure that the prediction is higher than the current allospecion
     for the package. This will be removed in the future as we analyze
     the effectiveness of the prediction model.
 
