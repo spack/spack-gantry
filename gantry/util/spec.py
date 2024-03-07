@@ -63,9 +63,7 @@ def parse_alloc_spec(spec: str) -> dict:
         pkg_variants, 
         compiler_name, 
         compiler_version
-    ) = (
-        match.groups()
-    )
+    ) = match.groups()
 
     spec_dict = {
         "pkg_name": pkg_name,
