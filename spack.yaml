@@ -8,7 +8,7 @@ spack:
   - py-coverage
   - py-flake8
   - py-black
-  - py-isort+colors@5.13.2
+  - "py-isort+colors@5.13.2:"
   - py-aiosqlite
   - sqlite
   view: true
