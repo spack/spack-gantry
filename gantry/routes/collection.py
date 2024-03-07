@@ -2,7 +2,7 @@ import logging
 
 import aiosqlite
 
-from gantry import db
+from gantry.clients import db
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.clients.prometheus.util import IncompleteData

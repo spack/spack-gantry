@@ -1,4 +1,4 @@
-from gantry.db.insert import insert_job, insert_node
+from gantry.clients.db.insert import insert_job, insert_node
 from gantry.tests.defs import db as defs
 
 
