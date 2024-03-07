@@ -58,11 +58,11 @@ def parse_alloc_spec(spec: str) -> dict:
     # groups in order
     # create a dictionary with the keys and values
     (
-        pkg_name, 
-        pkg_version, 
-        pkg_variants, 
-        compiler_name, 
-        compiler_version
+        pkg_name,
+        pkg_version,
+        pkg_variants,
+        compiler_name,
+        compiler_version,
     ) = match.groups()
 
     spec_dict = {
