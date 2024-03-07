@@ -21,7 +21,7 @@ jobs:
         run: |
           pip install -r .github/workflows/requirements/style.txt
 
-      - name: Lint and Format Check with Flake8 and Black
+      - name: Lint and style checks with black, isort, and flake8
         run: |
           black --diff --check gantry
           isort --diff --check gantry
