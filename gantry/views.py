@@ -7,7 +7,7 @@ from aiohttp import web
 
 from gantry.routes.collection import fetch_job
 from gantry.routes.prediction.prediction import predict_single
-from gantry.util.prediction import validate_payload
+from gantry.util.spec import parse_alloc_spec
 
 logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
@@ -42,22 +42,12 @@ async def collect_job(request: web.Request) -> web.Response:
 @routes.get("/v1/allocation")
 async def allocation(request: web.Request) -> web.Response:
     """
-    Given a spec in JSON format, return environment variables
+    Given a spec return environment variables
     that set resource allocations based on historical data.
 
-    acceptable payload:
-
-    {
-        "package": {
-            "name": "string",
-            "version": "string"
-            "variants": "string"
-        },
-        "compiler": {
-            "name": "string",
-            "version": "string"
-        }
-    }
+    acceptable spec format:
+    pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
+    NOTE: there must be a space between the package version and the variants
 
     returns:
 
@@ -69,17 +59,13 @@ async def allocation(request: web.Request) -> web.Response:
     that should be set within the build environment
     example: KUBERNETES_CPU_REQUEST, KUBERNETES_CPU_LIMIT, etc.
     """
-    payload = request.query.get("query")
+    spec = request.query.get("spec")
 
-    if not payload:
-        return web.Response(status=400, text="missing query parameter")
+    if not spec:
+        return web.Response(status=400, text="missing spec parameter")
 
-    try:
-        payload = json.loads(payload)
-    except json.decoder.JSONDecodeError:
-        return web.Response(status=400, text="invalid json")
+    parsed_spec = parse_alloc_spec(spec)
+    if not parsed_spec:
+        return web.Response(status=400, text="invalid spec")
 
-    if not validate_payload(payload):
-        return web.Response(status=400, text="invalid payload")
-
-    return web.json_response(await predict_single(request.app["db"], payload))
+    return web.json_response(await predict_single(request.app["db"], parsed_spec))
