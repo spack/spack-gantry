@@ -1,3 +1,14 @@
+[project]
+name = "gantry"
+version = "0.0.1"
+description = "A Dynamic Resource Allocation System for Spack CI and Kubernetes"
+license = "Apache-2.0 OR MIT"
+requires-python = ">= 3.11"
+authors = [
+    {name = "Caetano Melone", email = "caetanomelone@gmail.com"},
+    {name = "Alec Scott", email = "alec@llnl.gov"},
+]
+
 [tool.isort]
 profile = "black"
 skip_gitignore = true
