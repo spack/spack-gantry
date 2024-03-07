@@ -177,7 +177,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
 
 def ensure_higher_pred(prediction: dict, pkg_name: str):
     """
-    Ensure that the prediction is higher than the current allospecion
+    Ensure that the prediction is higher than the current allocation
     for the package. This will be removed in the future as we analyze
     the effectiveness of the prediction model.
 
