@@ -2,7 +2,7 @@ import pytest
 
 from gantry.routes.prediction import prediction
 from gantry.tests.defs import prediction as defs
-from gantry.util.prediction import validate_payload
+from gantry.util.spec import parse_alloc_spec
 
 
 @pytest.fixture
@@ -57,7 +57,7 @@ async def test_partial_match(db_conn_inserted):
 
     # same as NORMAL_BUILD, but with a different compiler name to test partial matching
     diff_compiler_build = defs.NORMAL_BUILD.copy()
-    diff_compiler_build["compiler"]["name"] = "gcc-different"
+    diff_compiler_build["compiler_name"] = "gcc-different"
 
     assert (
         await prediction.predict_single(db_conn_inserted, diff_compiler_build)
@@ -75,37 +75,36 @@ async def test_empty_sample(db_conn):
 
 
 # Test validate_payload
+def test_valid_spec():
+    """Tests that a valid spec is parsed correctly."""
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc@12.3.0") == {
+        "pkg_name": "emacs",
+        "pkg_version": "29.2",
+        "pkg_variants": '{"json": true, "native": true, "treesitter": true}',
+        "pkg_variants_dict": {"json": True, "native": True, "treesitter": True},
+        "compiler_name": "gcc",
+        "compiler_version": "12.3.0",
+    }
 
 
-def test_valid_payload():
-    """Tests that a valid payload returns True"""
-    assert validate_payload(defs.NORMAL_BUILD) is True
+def test_invalid_specs():
+    """Test a series of invalid specs"""
 
+    # not a spec
+    assert parse_alloc_spec("hi") == {}
 
-def test_invalid_payloads():
-    """Test a series of invalid payloads"""
-
-    # non dict
-    assert validate_payload("hi") is False
-
-    build = defs.NORMAL_BUILD.copy()
     # missing package
-    del build["package"]
-    assert validate_payload(build) is False
+    assert parse_alloc_spec("@29.2 +json+native+treesitter%gcc@12.3.0") == {}
 
-    build = defs.NORMAL_BUILD.copy()
     # missing compiler
-    del build["compiler"]
-    assert validate_payload(build) is False
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter") == {}
 
-    # name and version are strings in the package and compiler
-    for key in ["name", "version"]:
-        for field in ["package", "compiler"]:
-            build = defs.NORMAL_BUILD.copy()
-            build[field][key] = 123
-            assert validate_payload(build) is False
+    # variants not spaced correctly
+    assert parse_alloc_spec("emacs@29.2+json+native+treesitter%gcc@12.3.0") == {}
+
+    # missing versions
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc@") == {}
+    assert parse_alloc_spec("emacs@ +json+native+treesitter%gcc@12.3.0") == {}
 
     # invalid variants
-    build = defs.NORMAL_BUILD.copy()
-    build["package"]["variants"] = "+++++"
-    assert validate_payload(build) is False
+    assert parse_alloc_spec("emacs@29.2 this_is_not_a_thing%gcc@12.3.0") == {}
