@@ -35,7 +35,7 @@ The API will respond with `400 Bad Request` if any of this information is missin
 ## Allocation
 
 ```
-GET /allocation
+GET /allocation?spec=
 ```
 
 Given a spec, the API will calculate the optimal resource allocation for the job.
@@ -43,22 +43,12 @@ Given a spec, the API will calculate the optimal resource allocation for the job
 The spec sent to the endpoint should have the following format:
 
 ```
-{
-    "package": {
-        "name": str,
-        "version": str,
-        "variants" str
-    },
-    "compiler": {
-        "name": str,
-        "version" str
-    }
-}
+pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
 ```
 
-The JSON object should be [URL-encoded](https://en.wikipedia.org/wiki/Percent-encoding) and is passed through the `query` parameter. The maximum allowed size of the `GET` request is 8190 bytes.
+**There must be a space after the package version in order to account for variant parsing.** 
 
-If the request is not valid JSON or does not contain the required fields, the API will respond with `400 Bad Request`.
+If the request does not contain a valid spec, the API will respond with `400 Bad Request`. The maximum allowed size of the `GET` request is 8190 bytes.
 
 Expected response:
 
