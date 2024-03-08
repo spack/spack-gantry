@@ -1,4 +1,3 @@
-import json
 import logging
 import os
 
@@ -91,12 +90,6 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         list of lists with cpu_mean, cpu_max, mem_mean, mem_max
     """
 
-    # store the pkg_variants as a dict which is used in some of the queries
-    pkg_variants = spec["pkg_variants"]
-    # variants are represented as JSON in the database
-    # so we convert the dict to a string for comparison
-    spec["pkg_variants"] = json.dumps(spec["pkg_variants"])
-
     # ranked in order of priority, the params we would like to match on
     param_combos = (
         (
@@ -146,13 +139,14 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         # iterate through all the expensive variants and create a set of conditions
         # for the select query
         for var in EXPENSIVE_VARIANTS:
-            if var in pkg_variants:
+            if var in spec["pkg_variants_dict"]:
                 # if the client has queried for an expensive variant, we want to ensure
                 # that the sample has the same exact value
                 exp_variant_conditions.append(
                     f"json_extract(pkg_variants, '$.{var}')=?"
                 )
-                exp_variant_values.append(int(pkg_variants.get(var, 0)))
+
+                exp_variant_values.append(int(spec["pkg_variants_dict"].get(var, 0)))
             else:
                 # if an expensive variant was not queried for,
                 # we want to make sure that the variant was not set within the sample
