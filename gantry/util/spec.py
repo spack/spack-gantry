@@ -1,3 +1,4 @@
+import json
 import re
 
 
@@ -38,7 +39,8 @@ def parse_alloc_spec(spec: str) -> dict:
     and returns a dictionary with the following keys:
     - pkg_name: str
     - pkg_version: str
-    - pkg_variants: dict
+    - pkg_variants: str
+    - pkg_variants_dict: dict
     - compiler: str
     - compiler_version: str
 
@@ -65,15 +67,21 @@ def parse_alloc_spec(spec: str) -> dict:
         compiler_version,
     ) = match.groups()
 
+    pkg_variants_dict = spec_variants(pkg_variants)
+    if not pkg_variants_dict:
+        return {}
+
     spec_dict = {
         "pkg_name": pkg_name,
         "pkg_version": pkg_version,
-        "pkg_variants": spec_variants(pkg_variants),
+        # two representations of the variants are returned here
+        # to cut down on repeated conversions in later functions
+        # variants are represented as JSON in the database
+        "pkg_variants": json.dumps(pkg_variants_dict),
+        # variants dict is also returned for the client
+        "pkg_variants_dict": pkg_variants_dict,
         "compiler_name": compiler_name,
         "compiler_version": compiler_version,
     }
-
-    if not spec_dict["pkg_variants"]:
-        return {}
 
     return spec_dict
