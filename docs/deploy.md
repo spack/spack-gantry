@@ -31,3 +31,6 @@ The following variables should be exposed to the container. Those **bolded** are
 - `MAX_GET_SIZE` - the maximum `GET` request (in bytes), default is 8MB
 - `GANTRY_HOST` - web app hostname, default is `localhost`
 - `GANTRY_PORT` - web app port, default is `8080`
+- `PREDICT_STRATEGY` - optional mode for the prediction algorithm
+    - options: 
+        - `ensure_higher`: if the predicted resource usage is below current levels, it will disregard the prediction and keep what would be allocated without Gantry's intervention
