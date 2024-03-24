@@ -19,6 +19,7 @@ jobs:
     outputs:
       style: ${{ steps.filter.outputs.style }}
       unit-tests: ${{ steps.filter.outputs.unit-tests }}
+      container: ${{ steps.filter.outputs.container }}
     steps:
       - uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # @v2
         if: ${{ github.event_name == 'push' }}
@@ -38,6 +39,10 @@ jobs:
               - '.github/**'
               - 'gantry/**'
               - 'pyproject.toml'
+            container:
+              - '.github/workflows/**'
+              - 'gantry/**'
+              - 'pyproject.toml'
 
   style:
     if: ${{ needs.changes.outputs.style == 'true' }}
@@ -48,3 +53,8 @@ jobs:
     if: ${{ needs.changes.outputs.unit-tests == 'true' }}
     needs: [changes, style]
     uses: ./.github/workflows/unit-tests.yml
+
+  container:
+    if: ${{ needs.changes.outputs.container == 'true' }}
+    needs: [changes, style, unit-tests]
+    uses: ./.github/workflows/container.yml
