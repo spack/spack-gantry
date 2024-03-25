@@ -6,7 +6,8 @@ ci:
 dependencies:
 - changed-files:
   - any-glob-to-any-file:
-    - .github/worklflows/requirements/**
+    - .github/workflows/requirements/**
+    - requirements.txt
     - pyproject.toml
 
 docs:
