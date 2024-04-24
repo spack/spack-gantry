@@ -13,7 +13,7 @@ COPY requirements.txt /requirements.txt
 RUN /venv/bin/pip install --disable-pip-version-check -r /requirements.txt
 
 # Copy the virtualenv into a distroless image
-FROM gcr.io/distroless/python3-debian12:nonroot
+FROM gcr.io/distroless/python3-debian12:latest
 COPY --from=build /venv /venv
 COPY ./gantry /app/gantry
 COPY ./db /db
