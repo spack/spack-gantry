@@ -52,7 +52,10 @@ async def insert_node(db: aiosqlite.Connection, node: dict) -> int:
     pk = await get_node(db, node["uuid"])
 
     if pk is None:
-        logger.error(f"node not inserted: {node}. data is likely missing")
+        logger.error(
+            f"node not inserted: {node}. either a duplicate insert was attempted,\
+            or the insert failed due to missing data"
+        )
 
     return pk
 
