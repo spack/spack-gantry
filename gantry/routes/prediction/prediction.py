@@ -23,7 +23,7 @@ EXPENSIVE_VARIANTS = {
 }
 
 
-async def predict_single(db: aiosqlite.Connection, spec: dict) -> dict:
+async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
     """
     Predict the resource usage of a spec
 
