@@ -18,7 +18,11 @@ logging.basicConfig(
 
 async def init_db(app: web.Application):
     db = await aiosqlite.connect(os.environ["DB_FILE"])
-    await db.execute("PRAGMA foreign_keys = ON;")
+    # create a database with the schema if it doesn't exist
+    # otherwise, this is a noop
+    with open("db/schema.sql") as f:
+        await db.executescript(f.read())
+    await db.commit()
     app["db"] = db
     yield
     await db.close()

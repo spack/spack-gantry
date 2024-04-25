@@ -16,6 +16,6 @@ RUN /venv/bin/pip install --disable-pip-version-check -r /requirements.txt
 FROM gcr.io/distroless/python3-debian12:latest
 COPY --from=build /venv /venv
 COPY ./gantry /app/gantry
-COPY ./db /db
+COPY ./db /app/db
 WORKDIR /app
 ENTRYPOINT ["/venv/bin/python", "-m", "gantry"]
