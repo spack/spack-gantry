@@ -66,11 +66,15 @@ async def insert_job(db: aiosqlite.Connection, job: dict) -> int:
             job,
             # if the job somehow gets added into the db (pod+id being unique)
             # then ignore the insert
+            # in this case, lastrowid will be 0
             ignore=True,
         )
     ) as cursor:
         if cursor.rowcount > 0:
             return cursor.lastrowid
 
-    logger.error(f"job not inserted: {job}. data is likely missing")
+    logger.error(
+        f"job not inserted: {job}. either a duplicate insert was attempted,\
+        or the insert failed due to missing data"
+    )
     return None
