@@ -1,5 +1,4 @@
 import logging
-import os
 
 import aiosqlite
 
@@ -23,13 +22,17 @@ EXPENSIVE_VARIANTS = {
 }
 
 
-async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
+async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) -> dict:
     """
     Predict the resource usage of a spec
 
     args:
         spec: dict that contains pkg_name, pkg_version, pkg_variants,
         compiler_name, compiler_version
+        strategy (optional): custom prediction behavior
+            "ensure_higher": if the predicted resource usage is
+            below current levels, it will disregard the prediction and
+            keep what would be allocated without Gantry's intervention
     returns:
         dict of predicted resource usage: cpu_request, mem_request
         CPU in millicore, mem in MB
@@ -51,7 +54,7 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
             "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
-    if os.environ.get("PREDICT_STRATEGY") == "ensure_higher":
+    if strategy == "ensure_higher":
         ensure_higher_pred(predictions, spec["pkg_name"])
 
     # warn if the prediction is below some thresholds
@@ -85,7 +88,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
     Selects a sample of builds to use for prediction
 
     args:
-        spec: see predict_single
+        spec: see predict
     returns:
         list of lists with cpu_mean, cpu_max, mem_mean, mem_max
     """
