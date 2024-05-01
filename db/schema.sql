@@ -1,6 +1,6 @@
 PRAGMA foreign_keys = ON;
 
-CREATE TABLE nodes (
+CREATE TABLE IF NOT EXISTS nodes (
     id INTEGER PRIMARY KEY,
     uuid TEXT NOT NULL UNIQUE,
     hostname TEXT NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE nodes (
     instance_type TEXT NOT NULL
 );
 
-CREATE TABLE jobs (
+CREATE TABLE IF NOT EXISTS jobs (
     id INTEGER PRIMARY KEY,
     pod TEXT NOT NULL UNIQUE,
     node INTEGER NOT NULL,
