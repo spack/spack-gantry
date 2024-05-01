@@ -6,6 +6,8 @@ import os
 from aiohttp import web
 
 from gantry.routes.collection import fetch_job
+from gantry.routes.prediction.prediction import predict
+from gantry.util.spec import parse_alloc_spec
 
 logger = logging.getLogger(__name__)
 routes = web.RouteTableDef()
@@ -35,3 +37,38 @@ async def collect_job(request: web.Request) -> web.Response:
     )
 
     return web.Response(status=200)
+
+
+@routes.get("/v1/allocation")
+async def allocation(request: web.Request) -> web.Response:
+    """
+    Given a spec return environment variables
+    that set resource allocations based on historical data.
+
+    acceptable spec format:
+    pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
+    NOTE: there must be a space between the package version and the variants
+
+    returns:
+
+    {
+        "variables": {}
+    }
+
+    the variables key contains the environment variables
+    that should be set within the build environment
+    example: KUBERNETES_CPU_REQUEST, KUBERNETES_CPU_LIMIT, etc.
+    """
+    spec = request.query.get("spec")
+
+    if not spec:
+        return web.Response(status=400, text="missing spec parameter")
+
+    parsed_spec = parse_alloc_spec(spec)
+    if not parsed_spec:
+        return web.Response(status=400, text="invalid spec")
+
+    # we want to keep predictions >= current levels (with ensure_higher strategy)
+    return web.json_response(
+        await predict(request.app["db"], parsed_spec, strategy="ensure_higher")
+    )
