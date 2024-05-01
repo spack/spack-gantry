@@ -19,7 +19,7 @@ async def test_exact_match(db_conn_inserted):
     """All fields are an exact match for 5 samples in the database."""
 
     assert (
-        await prediction.predict_single(db_conn_inserted, defs.NORMAL_BUILD)
+        await prediction.predict(db_conn_inserted, defs.NORMAL_BUILD)
         == defs.NORMAL_PREDICTION
     )
 
@@ -32,7 +32,7 @@ async def test_expensive_variants(db_conn_inserted):
     """
 
     assert (
-        await prediction.predict_single(db_conn_inserted, defs.EXPENSIVE_VARIANT_BUILD)
+        await prediction.predict(db_conn_inserted, defs.EXPENSIVE_VARIANT_BUILD)
         == defs.NORMAL_PREDICTION
     )
 
@@ -43,7 +43,7 @@ async def test_no_variant_match(db_conn_inserted):
     """
 
     assert (
-        await prediction.predict_single(db_conn_inserted, defs.BAD_VARIANT_BUILD)
+        await prediction.predict(db_conn_inserted, defs.BAD_VARIANT_BUILD)
         == defs.DEFAULT_PREDICTION
     )
 
@@ -60,7 +60,7 @@ async def test_partial_match(db_conn_inserted):
     diff_compiler_build["compiler_name"] = "gcc-different"
 
     assert (
-        await prediction.predict_single(db_conn_inserted, diff_compiler_build)
+        await prediction.predict(db_conn_inserted, diff_compiler_build)
         == defs.NORMAL_PREDICTION
     )
 
@@ -69,8 +69,7 @@ async def test_empty_sample(db_conn):
     """No samples in the database, so we expect default predictions."""
 
     assert (
-        await prediction.predict_single(db_conn, defs.NORMAL_BUILD)
-        == defs.DEFAULT_PREDICTION
+        await prediction.predict(db_conn, defs.NORMAL_BUILD) == defs.DEFAULT_PREDICTION
     )
 
 
