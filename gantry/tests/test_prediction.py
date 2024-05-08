@@ -101,9 +101,13 @@ def test_invalid_specs():
     # variants not spaced correctly
     assert parse_alloc_spec("emacs@29.2+json+native+treesitter%gcc@12.3.0") == {}
 
-    # missing versions
+    # missing compiler version
     assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc@") == {}
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc") == {}
+    
+    # missing package version
     assert parse_alloc_spec("emacs@ +json+native+treesitter%gcc@12.3.0") == {}
+    assert parse_alloc_spec("emacs+json+native+treesitter%gcc@12.3.0") == {}
 
     # invalid variants
     assert parse_alloc_spec("emacs@29.2 this_is_not_a_thing%gcc@12.3.0") == {}
