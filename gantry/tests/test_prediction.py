@@ -104,7 +104,7 @@ def test_invalid_specs():
     # missing compiler version
     assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc@") == {}
     assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc") == {}
-    
+
     # missing package version
     assert parse_alloc_spec("emacs@ +json+native+treesitter%gcc@12.3.0") == {}
     assert parse_alloc_spec("emacs+json+native+treesitter%gcc@12.3.0") == {}
