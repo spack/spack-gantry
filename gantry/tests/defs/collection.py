@@ -12,8 +12,8 @@ VALID_JOB = {
     "build_status": "success",
     "build_name": "gmsh@4.8.4 /jcchwaj %gcc@11.4.0 arch=linux-ubuntu20.04-x86_64_v3 E4S",
     "build_id": 9892514,  # not used in testing unless it already exists in the db
-    "build_started_at": "2024-01-24T17:24:06.000Z",
-    "build_finished_at": "2024-01-24T17:47:00.000Z",
+    "build_started_at": "2024-01-24 17:24:06 UTC",
+    "build_finished_at": "2024-01-24 17:47:00 UTC",
     "ref": "pr42264_bugfix/mathomp4/hdf5-appleclang15",
     "runner": {"description": "aws"},
 }
