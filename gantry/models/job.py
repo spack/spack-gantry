@@ -1,5 +1,6 @@
 import re
-from datetime import datetime
+
+from gantry.util.time import webhook_timestamp
 
 
 class Job:
@@ -17,9 +18,10 @@ class Job:
         self.gl_id = gl_id
         # handle jobs that haven't started or finished
         if start:
-            self.start = datetime.fromisoformat(start).timestamp()
+            self.start = webhook_timestamp(start)
         if end:
-            self.end = datetime.fromisoformat(end).timestamp()
+            self.end = webhook_timestamp(end)
+
         self.ref = ref
 
     @property
