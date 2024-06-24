@@ -29,26 +29,34 @@ class PrometheusJobClient:
 
         annotations = res[0]["labels"]
 
-        return {
-            "pod": annotations["pod"],
-            # if build jobs is not set, defaults to 16 due to spack config
-            "build_jobs": annotations.get(
-                "annotation_metrics_spack_job_build_jobs", 16
-            ),
-            "arch": annotations["annotation_metrics_spack_job_spec_arch"],
-            "pkg_name": annotations["annotation_metrics_spack_job_spec_pkg_name"],
-            "pkg_version": annotations["annotation_metrics_spack_job_spec_pkg_version"],
-            "pkg_variants": json.dumps(
-                spec_variants(annotations["annotation_metrics_spack_job_spec_variants"])
-            ),
-            "compiler_name": annotations[
-                "annotation_metrics_spack_job_spec_compiler_name"
-            ],
-            "compiler_version": annotations[
-                "annotation_metrics_spack_job_spec_compiler_version"
-            ],
-            "stack": annotations["annotation_metrics_spack_ci_stack_name"],
-        }
+        try:
+            return {
+                "pod": annotations["pod"],
+                # if build jobs is not set, defaults to 16 due to spack config
+                "build_jobs": annotations.get(
+                    "annotation_metrics_spack_job_build_jobs", 16
+                ),
+                "arch": annotations["annotation_metrics_spack_job_spec_arch"],
+                "pkg_name": annotations["annotation_metrics_spack_job_spec_pkg_name"],
+                "pkg_version": annotations[
+                    "annotation_metrics_spack_job_spec_pkg_version"
+                ],
+                "pkg_variants": json.dumps(
+                    spec_variants(
+                        annotations["annotation_metrics_spack_job_spec_variants"]
+                    )
+                ),
+                "compiler_name": annotations[
+                    "annotation_metrics_spack_job_spec_compiler_name"
+                ],
+                "compiler_version": annotations[
+                    "annotation_metrics_spack_job_spec_compiler_version"
+                ],
+                "stack": annotations["annotation_metrics_spack_ci_stack_name"],
+            }
+        except KeyError as e:
+            # if any of the annotations are missing, raise an error
+            raise util.IncompleteData(f"missing annotation: {e}")
 
     async def get_resources(self, pod: str, time: float) -> tuple[dict, str]:
         """
@@ -83,7 +91,10 @@ class PrometheusJobClient:
         # we can grab it from kube_pod_container_resource_limits
         # weirdly, it's not available in kube_pod_labels or annotations
         # https://github.com/kubernetes/kube-state-metrics/issues/1148
-        node = limits_res[0]["labels"]["node"]
+        try:
+            node = limits_res[0]["labels"]["node"]
+        except KeyError:
+            raise util.IncompleteData("missing node label")
         limits = util.process_resources(limits_res)
 
         return (
