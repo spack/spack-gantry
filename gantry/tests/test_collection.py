@@ -47,7 +47,7 @@ async def prometheus(mocker):
     "key, value",
     [
         ("build_status", defs.INVALID_JOB_STATUS),
-        ("build_name", defs.INVALID_JOB_NAME),
+        ("build_stage", defs.INVALID_STAGE),
         ("runner", defs.INVALID_RUNNER),
     ],
 )
