@@ -37,11 +37,3 @@ To illustrate the problem, let's go through some usage numbers (across all build
 - max/request = 2.69
 
 There is a lot of misallocation going on here. As was said above, limits are not enforced, so request is the closest we're going to get to a useful comparison of usage. Bottom line, we are using a lot less memory than we request, and more CPU than we ask for.
-
-## Cost per job
-
-Work is being performed to determine the best way to model the cost per job and node. 
-
-**Notes**:
-- waste needs to be quantified in the cost per job
-- instance type should be controlled for, as we don't want the number of cores to be the variable in the cost function, since the performance can vary drastically
