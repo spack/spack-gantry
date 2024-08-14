@@ -19,7 +19,7 @@ The payload should be include the following fields at a minimum (Gitlab will inc
 ```
 {
     "build_status": str,
-    "build_name": str,
+    "build_stage": str,
     "build_id": int,
     "build_started_at": str,
     "build_finished_at": str,

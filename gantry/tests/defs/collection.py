@@ -1,7 +1,7 @@
 # flake8: noqa
 # fmt: off
 
-INVALID_JOB_NAME = "invalid job name"
+INVALID_STAGE = "stage-generate"
 # uo runners are not supported
 INVALID_RUNNER = {"description": "uo-blabla1821"}
 INVALID_JOB_STATUS = "failure"
@@ -10,7 +10,7 @@ VALID_JOB_LOG = "some log"
 
 VALID_JOB = {
     "build_status": "success",
-    "build_name": "gmsh@4.8.4 /jcchwaj %gcc@11.4.0 arch=linux-ubuntu20.04-x86_64_v3 E4S",
+    "build_stage": "stage-1",
     "build_id": 9892514,  # not used in testing unless it already exists in the db
     "build_started_at": "2024-01-24 17:24:06 UTC",
     "build_finished_at": "2024-01-24 17:47:00 UTC",

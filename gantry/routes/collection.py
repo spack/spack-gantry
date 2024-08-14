@@ -1,4 +1,5 @@
 import logging
+import re
 
 import aiosqlite
 
@@ -9,6 +10,7 @@ from gantry.clients.prometheus.util import IncompleteData
 from gantry.models import Job
 
 MB_IN_BYTES = 1_000_000
+BUILD_STAGE_REGEX = r"^stage-\d+$"
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +36,6 @@ async def fetch_job(
 
     job = Job(
         status=payload["build_status"],
-        name=payload["build_name"],
         gl_id=payload["build_id"],
         start=payload["build_started_at"],
         end=payload["build_finished_at"],
@@ -44,12 +45,14 @@ async def fetch_job(
     # perform checks to see if we should collect data for this job
     if (
         job.status != "success"
-        or not job.valid_build_name  # is not a build job
+        # if the stage is not stage-NUMBER, it's not a build job
+        or not re.match(BUILD_STAGE_REGEX, payload["build_stage"])
         # some jobs don't have runners..?
         or payload["runner"] is None
         # uo runners are not in Prometheus
         or payload["runner"]["description"].startswith("uo")
-        or await db.job_exists(db_conn, job.gl_id)  # job already in the database
+        # job already in the database
+        or await db.job_exists(db_conn, job.gl_id)
     ):
         return
 
