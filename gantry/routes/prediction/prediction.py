@@ -142,14 +142,17 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         # iterate through all the expensive variants and create a set of conditions
         # for the select query
         for var in EXPENSIVE_VARIANTS:
-            if var in spec["pkg_variants_dict"]:
+            variant_value = spec["pkg_variants_dict"].get(var)
+
+            # check against specs where hdf5=none like quantum-espresso
+            if isinstance(variant_value, (bool, int)):
                 # if the client has queried for an expensive variant, we want to ensure
                 # that the sample has the same exact value
                 exp_variant_conditions.append(
                     f"json_extract(pkg_variants, '$.{var}')=?"
                 )
 
-                exp_variant_values.append(int(spec["pkg_variants_dict"].get(var, 0)))
+                exp_variant_values.append(int(variant_value))
             else:
                 # if an expensive variant was not queried for,
                 # we want to make sure that the variant was not set within the sample

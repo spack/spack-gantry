@@ -51,7 +51,8 @@ def parse_alloc_spec(spec: str) -> dict:
     """
 
     # example: emacs@29.2 +json+native+treesitter%gcc@12.3.0
-    spec_pattern = re.compile(r"(.+?)@([\d.]+)\s+(.+?)%([\w-]+)@([\d.]+)")
+    # this regex accommodates versions made up of any non-space characters
+    spec_pattern = re.compile(r"(.+?)@(\S+)\s+(.+?)%([\w-]+)@(\S+)")
 
     match = spec_pattern.match(spec)
     if not match:
