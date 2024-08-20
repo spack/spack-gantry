@@ -28,6 +28,7 @@ async def apply_migrations(db: aiosqlite.Connection):
         # and not inadvertently added to the migrations folder
         ("001_initial.sql", 1),
         ("002_spec_index.sql", 2),
+        ("003_job_cost.sql", 3),
     ]
 
     # apply migrations that have not been applied
@@ -45,6 +46,8 @@ async def apply_migrations(db: aiosqlite.Connection):
 async def init_db(app: web.Application):
     db = await aiosqlite.connect(os.environ["DB_FILE"])
     await apply_migrations(db)
+    # ensure foreign key constraints are enabled
+    await db.execute("PRAGMA foreign_keys = ON")
     app["db"] = db
     yield
     await db.close()
