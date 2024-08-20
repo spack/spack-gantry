@@ -34,6 +34,7 @@ async def webhook(job):
     job["build_status"] = job["status"]
     job["build_name"] = job["name"]
     job["build_id"] = job["id"]
+    job["build_stage"] = job["stage"]
     if job["started_at"] is None or job["finished_at"] is None:
         return
     else:
