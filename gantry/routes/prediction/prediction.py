@@ -1,4 +1,5 @@
 import logging
+import math
 
 import aiosqlite
 
@@ -49,8 +50,11 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         predictions = {
             # averages the respective metric in the sample
-            # cpu should always be whole number
-            "cpu_request": round(sum([build[0] for build in sample]) / len(sample)),
+            # cpu rounded up to nearest 0.1
+            "cpu_request": math.ceil(
+                (sum([build[0] for build in sample]) / len(sample)) * 10
+            )
+            / 10,
             "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
@@ -58,8 +62,8 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         ensure_higher_pred(predictions, spec["pkg_name"])
 
     # warn if the prediction is below some thresholds
-    if predictions["cpu_request"] < 0.25:
-        logger.warning(f"Warning: CPU request for {spec} is below 0.25 cores")
+    if predictions["cpu_request"] < 0.2:
+        logger.warning(f"Warning: CPU request for {spec} is below 0.2 cores")
         predictions["cpu_request"] = DEFAULT_CPU_REQUEST
     if predictions["mem_request"] < 10_000_000:
         logger.warning(f"Warning: Memory request for {spec} is below 10MB")
@@ -68,7 +72,7 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
         if k.startswith("cpu"):
-            predictions[k] = str(int(v))
+            predictions[k] = str(v)
         elif k.startswith("mem"):
             predictions[k] = k8s.convert_bytes(v)
 
