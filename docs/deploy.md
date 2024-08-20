@@ -39,4 +39,8 @@ While most details are better suited to be documented with the cluster, there ar
 
 We have made an architectural decision to depend on SQLite as the database engine. Before you deploy Gantry into a cluster, you should ensure that the file will be backed up on a regular basis, in the case that unexpected circumstances corrupt your data. This can be achieved using [Litestream](https://litestream.io), which will continuously replicate the database with the storage provider of your choice. See the cluster configuration linked above for details.
 
-When you first deploy the application on the cluster, be sure to run `/db/init_db.py <db_path>` to initialize an SQLite file with default tables, and to apply any migrations.
+When first deployed, the application will create `$DB_FILE` if it doesn't already exist. It will not create directories in the path.
+
+**Migrations**
+
+Changes to the database schema are stored in the `migrations/` directory. Follow the naming convention `000_name.sql` and place new items in the `migrations` list inside the `gantry/__main__.py:apply_migrations` function.

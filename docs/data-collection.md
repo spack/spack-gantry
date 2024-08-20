@@ -4,7 +4,7 @@ Job metadata is retrieved through the Spack Prometheus service (https://promethe
 
 Gantry exposes a webhook handler at `/v1/collection` which will accept a job status payload from Gitlab and collect build attributes and usage, submitting to the database.
 
-See `/db/schema.sql` for a full list of the data that is being collected.
+See the `migrations` folder for the complete database schema.
 
 ## Units
 
