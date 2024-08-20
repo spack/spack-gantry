@@ -53,4 +53,6 @@ class PrometheusNodeClient:
             "arch": labels["label_kubernetes_io_arch"],
             "os": labels["label_kubernetes_io_os"],
             "instance_type": labels["label_node_kubernetes_io_instance_type"],
+            "capacity_type": labels["label_karpenter_sh_capacity_type"],
+            "zone": labels["label_topology_kubernetes_io_zone"],
         }
