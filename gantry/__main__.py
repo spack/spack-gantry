@@ -27,6 +27,7 @@ async def apply_migrations(db: aiosqlite.Connection):
         # they are applied in the correct order
         # and not inadvertently added to the migrations folder
         ("001_initial.sql", 1),
+        ("003_spec_index.sql", 3),
     ]
 
     # apply migrations that have not been applied

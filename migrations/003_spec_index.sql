@@ -1,0 +1,1 @@
+CREATE INDEX complete_spec on jobs(pkg_name, pkg_variants, pkg_version, compiler_name, compiler_version, end);
