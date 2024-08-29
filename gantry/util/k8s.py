@@ -2,6 +2,7 @@ BYTES_TO_MEGABYTES = 1 / 1_000_000
 CORES_TO_MILLICORES = 1_000
 
 # these functions convert the predictions to k8s friendly format
+# https://kubernetes.io/docs/concepts/configuration/manage-resources-containers
 
 
 def convert_bytes(bytes: float) -> str:
