@@ -1,5 +1,4 @@
 import logging
-import math
 
 import aiosqlite
 
@@ -9,7 +8,7 @@ from gantry.util import k8s
 logger = logging.getLogger(__name__)
 
 IDEAL_SAMPLE = 5
-DEFAULT_CPU_REQUEST = 1.0
+DEFAULT_CPU_REQUEST = 1
 DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
 EXPENSIVE_VARIANTS = {
     "sycl",
@@ -50,11 +49,7 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         predictions = {
             # averages the respective metric in the sample
-            # cpu rounded up to nearest 0.1
-            "cpu_request": math.ceil(
-                (sum([build[0] for build in sample]) / len(sample)) * 10
-            )
-            / 10,
+            "cpu_request": sum([build[0] for build in sample]) / len(sample),
             "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
@@ -72,7 +67,7 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
         if k.startswith("cpu"):
-            predictions[k] = str(v)
+            predictions[k] = k8s.convert_cores(v)
         elif k.startswith("mem"):
             predictions[k] = k8s.convert_bytes(v)
 

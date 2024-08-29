@@ -21,8 +21,8 @@ BAD_VARIANT_BUILD = parse_alloc_spec(
 # calculated by running the baseline prediction algorithm on the sample data in gantry/tests/sql/insert_prediction.sql
 NORMAL_PREDICTION = {
     "variables": {
-        "KUBERNETES_CPU_REQUEST": "11.8",
-        "KUBERNETES_MEMORY_REQUEST": "9576M",
+        "KUBERNETES_CPU_REQUEST": "11779m",
+        "KUBERNETES_MEMORY_REQUEST": "9577M",
     },
 }
 
@@ -30,7 +30,7 @@ NORMAL_PREDICTION = {
 # that match what the client wants
 DEFAULT_PREDICTION = {
     "variables": {
-        "KUBERNETES_CPU_REQUEST": "1.0",
+        "KUBERNETES_CPU_REQUEST": "1000m",
         "KUBERNETES_MEMORY_REQUEST": "2000M",
     },
 }
