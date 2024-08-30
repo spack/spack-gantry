@@ -18,6 +18,10 @@ Where `LOCAL_DB_PATH` is the absolute path to the database file on your local sy
 
 When running Gantry within Kubernetes, you could use [persistent volumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/). The only requirement is that a copy of the database should exist outside the container for backup and persistence purposes.
 
+## Container
+
+When modifying the Dockerfile, keep in mind that the Python version in the container depends on the distribution (Debian). Google's "[distroless](https://github.com/GoogleContainerTools/distroless)" containers, which we use as a base image, do not provide a mechanism to specify a Python version (major, minor, or patch). Therefore, check the [Debian documentation](https://wiki.debian.org/Python) to see which  version is included in the distro and verify that all tests pass before modifying the image.
+
 ## Environment
 
 The following variables should be exposed to the container. Those **bolded** are required and do not have defaults set in the application.
