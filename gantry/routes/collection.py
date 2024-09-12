@@ -50,7 +50,7 @@ async def fetch_job(
         # some jobs don't have runners..?
         or payload["runner"] is None
         # uo runners are not in Prometheus
-        or payload["runner"]["description"].startswith("uo")
+        or payload["runner"]["description"].strip().startswith("uo")
         # job already in the database
         or await db.job_exists(db_conn, job.gl_id)
     ):
