@@ -152,3 +152,18 @@ class PrometheusJobClient:
             "mem_min": mem_usage["min"],
             "mem_stddev": mem_usage["stddev"],
         }
+
+    async def is_oom(self, pod: str, start: float, end: float) -> bool:
+        """checks if a job was OOM killed"""
+        # search for queries in prometheus
+
+        oom_status = self.client.query_range(
+            query={
+                "metric": "kube_pod_container_status_last_terminated_reason",
+                "filters": {"container": "build", "pod": pod, "reason": "OOMKilled"},
+            },
+            start=start,
+            end=end + (10 * 60),  # 10 minute buffer, handle where there is no data...
+        )
+
+        return bool(oom_status)
