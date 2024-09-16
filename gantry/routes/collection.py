@@ -44,7 +44,7 @@ async def fetch_job(
 
     # perform checks to see if we should collect data for this job
     if (
-        job.status != "success"
+        job.status not in ("success", "failed")
         # if the stage is not stage-NUMBER, it's not a build job
         or not re.match(BUILD_STAGE_REGEX, payload["build_stage"])
         # some jobs don't have runners..?
@@ -65,6 +65,13 @@ async def fetch_job(
 
     try:
         annotations = await prometheus.job.get_annotations(job.gl_id, job.midpoint)
+        if job.status == "failed":
+            # todo does this flow need to exist here?
+            if await prometheus.job.is_oom():
+                pass
+            else:
+                pass
+
         resources, node_hostname = await prometheus.job.get_resources(
             annotations["pod"], job.midpoint
         )
