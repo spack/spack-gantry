@@ -46,6 +46,8 @@ The spec sent to the endpoint should have the following format:
 pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
 ```
 
+Be sure that the string is URL-encoded. For instance, the `urllib.parse.quote` method will ensure the proper format. Without it, the allocation algorithm may return inaccurate results.
+
 **There must be a space after the package version in order to account for variant parsing.** 
 
 If the request does not contain a valid spec, the API will respond with `400 Bad Request`. The maximum allowed size of the `GET` request is 8190 bytes.

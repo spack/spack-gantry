@@ -8,7 +8,7 @@ from gantry.util import k8s
 logger = logging.getLogger(__name__)
 
 IDEAL_SAMPLE = 5
-DEFAULT_CPU_REQUEST = 1.0
+DEFAULT_CPU_REQUEST = 1
 DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
 EXPENSIVE_VARIANTS = {
     "sycl",
@@ -49,8 +49,7 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         predictions = {
             # averages the respective metric in the sample
-            # cpu should always be whole number
-            "cpu_request": round(sum([build[0] for build in sample]) / len(sample)),
+            "cpu_request": sum([build[0] for build in sample]) / len(sample),
             "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
 
@@ -58,8 +57,8 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         ensure_higher_pred(predictions, spec["pkg_name"])
 
     # warn if the prediction is below some thresholds
-    if predictions["cpu_request"] < 0.25:
-        logger.warning(f"Warning: CPU request for {spec} is below 0.25 cores")
+    if predictions["cpu_request"] < 0.2:
+        logger.warning(f"Warning: CPU request for {spec} is below 0.2 cores")
         predictions["cpu_request"] = DEFAULT_CPU_REQUEST
     if predictions["mem_request"] < 10_000_000:
         logger.warning(f"Warning: Memory request for {spec} is below 10MB")
@@ -68,7 +67,7 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
         if k.startswith("cpu"):
-            predictions[k] = str(int(v))
+            predictions[k] = k8s.convert_cores(v)
         elif k.startswith("mem"):
             predictions[k] = k8s.convert_bytes(v)
 
@@ -142,14 +141,17 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         # iterate through all the expensive variants and create a set of conditions
         # for the select query
         for var in EXPENSIVE_VARIANTS:
-            if var in spec["pkg_variants_dict"]:
+            variant_value = spec["pkg_variants_dict"].get(var)
+
+            # check against specs where hdf5=none like quantum-espresso
+            if isinstance(variant_value, (bool, int)):
                 # if the client has queried for an expensive variant, we want to ensure
                 # that the sample has the same exact value
                 exp_variant_conditions.append(
                     f"json_extract(pkg_variants, '$.{var}')=?"
                 )
 
-                exp_variant_values.append(int(spec["pkg_variants_dict"].get(var, 0)))
+                exp_variant_values.append(int(variant_value))
             else:
                 # if an expensive variant was not queried for,
                 # we want to make sure that the variant was not set within the sample
