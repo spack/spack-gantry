@@ -1,0 +1,16 @@
+spack:
+  view: false
+  specs:
+  - zlib
+  ci:
+    pipeline-gen:
+    - dynamic-mapping:
+        endpoint: http://0.0.0.0:8080/v1/allocation
+        timeout: 1
+        verify_ssl: false
+        attributes:
+          allow:
+          - variables
+          require:
+          - variables
+
