@@ -53,6 +53,9 @@ class PrometheusJobClient:
                     "annotation_metrics_spack_job_spec_compiler_version"
                 ],
                 "stack": annotations["annotation_metrics_spack_ci_stack_name"],
+                "retry_count": annotations.get(
+                    "annotation_metrics_spack_job_retry_count", 0
+                ),
             }
         except KeyError as e:
             # if any of the annotations are missing, raise an error
@@ -155,9 +158,8 @@ class PrometheusJobClient:
 
     async def is_oom(self, pod: str, start: float, end: float) -> bool:
         """checks if a job was OOM killed"""
-        # search for queries in prometheus
-
-        oom_status = self.client.query_range(
+        # TODO this does not work
+        oom_status = await self.client.query_range(
             query={
                 "metric": "kube_pod_container_status_last_terminated_reason",
                 "filters": {"container": "build", "pod": pod, "reason": "OOMKilled"},
