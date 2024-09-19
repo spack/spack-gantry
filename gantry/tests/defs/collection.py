@@ -18,6 +18,17 @@ VALID_JOB = {
     "runner": {"description": "aws"},
 }
 
+FAILED_JOB = {
+    "build_status": "failed",
+    "build_stage": "stage-1",
+    "build_id": 9892514,  # not used in testing unless it already exists in the db
+    "build_started_at": "2024-01-24 17:24:06 UTC",
+    "build_finished_at": "2024-01-24 17:47:00 UTC",
+    "ref": "pr42264_bugfix/mathomp4/hdf5-appleclang15",
+    "runner": {"description": "aws"},
+}
+
+
 # used to compare successful insertions
 # run SELECT * FROM table_name WHERE id = 1; from python sqlite api and grab fetchone() result
 INSERTED_JOB = (1, 'runner-hwwb-i3u-project-2-concurrent-1-s10tq41z', 1, 1706117046, 1706118420, 9892514, 'success', 'pr42264_bugfix/mathomp4/hdf5-appleclang15', 'gmsh', '4.8.4', '{"alglib": true, "cairo": false, "cgns": true, "compression": true, "eigen": false, "external": false, "fltk": true, "gmp": true, "hdf5": false, "ipo": false, "med": true, "metis": true, "mmg": true, "mpi": true, "netgen": true, "oce": true, "opencascade": false, "openmp": false, "petsc": false, "privateapi": false, "shared": true, "slepc": false, "tetgen": true, "voropp": true, "build_system": "cmake", "build_type": "Release", "generator": "make"}', 'gcc', '11.4.0', 'linux-ubuntu20.04-x86_64_v3', 'e4s', 16, 0.75, None, 1.899768349523097, 0.2971597591741076, 4.128116379389054, 0.2483743618267752, 1.7602635378120381, 2000000000.0, 48000000000.0, 143698407.6190476, 2785280.0, 594620416.0, 2785280.0, 252073065.82263485, 0, 0)

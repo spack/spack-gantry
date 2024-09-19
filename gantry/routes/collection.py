@@ -57,7 +57,7 @@ async def handle_pipeline(
 
     for job in failed_jobs:
         # insert every potentially oomed job
-        oomed = await fetch_job(job, db_conn, gitlab, prometheus)
+        oomed = await fetch_job(job, db_conn, gitlab, prometheus, from_pipeline=True)
         # fetch_job can return None or (job_id: int, oomed: bool)
         if oomed and oomed[1]:
             retry_pipeline = True
@@ -73,6 +73,7 @@ async def fetch_job(
     db_conn: aiosqlite.Connection,
     gitlab: GitlabClient,
     prometheus: PrometheusClient,
+    from_pipeline: bool = False,
 ) -> tuple[int, bool] | None:
     """
     Collects a job's information from Prometheus and inserts into db.
@@ -84,6 +85,7 @@ async def fetch_job(
         db: an active aiosqlite connection
         gitlab: gitlab client
         prometheus: prometheus client
+        from_pipeline: if the job was called from a pipeline handler
 
     returns: if data was inserted,
                 a tuple of the job id and if the job was OOM killed, else None
@@ -99,7 +101,12 @@ async def fetch_job(
 
     # perform checks to see if we should collect data for this job
     if (
-        job.status not in ("success", "failed")
+        # successful jobs should not come from a handle_pipeline call
+        job.status != "success"
+        and from_pipeline is False
+        # we don't want to collect failed jobs that aren't from a handle_pipeline call
+        or job.status != "failed"
+        and from_pipeline is True
         # if the stage is not stage-NUMBER, it's not a build job
         or not re.match(BUILD_STAGE_REGEX, payload["build_stage"])
         # some jobs don't have runners..?

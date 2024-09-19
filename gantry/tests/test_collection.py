@@ -131,6 +131,20 @@ async def test_job_node_inserted(db_conn, gitlab, prometheus):
     assert node == defs.INSERTED_NODE
 
 
+async def test_failed_job(db_conn, gitlab, prometheus):
+    """Tests condition check for failed/success in fetch_job."""
+
+    # successful jobs from pipeline should not be inserted
+    await fetch_job(defs.VALID_JOB, db_conn, gitlab, prometheus, from_pipeline=True)
+    async with db_conn.execute("SELECT * FROM jobs") as cursor:
+        assert await cursor.fetchone() is None
+
+    # failed jobs not from the pipeline should not be inserted
+    await fetch_job(defs.FAILED_JOB, db_conn, gitlab, prometheus, from_pipeline=False)
+    async with db_conn.execute("SELECT * FROM jobs") as cursor:
+        assert await cursor.fetchone() is None
+
+
 async def test_node_exists(db_conn, prometheus):
     """Tests that fetch_node returns the existing node id when the node
     is already in the database"""
