@@ -43,7 +43,7 @@ Given a spec, the API will calculate the optimal resource allocation for the job
 The spec sent to the endpoint should have the following format:
 
 ```
-pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
+pkg_name@pkg_version +variant1+variant2 arch=arch%compiler@compiler_version
 ```
 
 Be sure that the string is URL-encoded. For instance, the `urllib.parse.quote` method will ensure the proper format. Without it, the allocation algorithm may return inaccurate results.
