@@ -66,7 +66,6 @@ async def handle_pipeline(
     # once all jobs are collected/discarded, retry the pipeline if needed
     if retry_pipeline:
         await gitlab.start_pipeline(ref)
-        print("hi")
         return True
 
 
