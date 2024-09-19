@@ -204,3 +204,4 @@ async def test_handle_pipeline(db_conn, gitlab, prometheus):
 
 # TODO test if OOM status is correct
 # TODO test start_pipeline response is json not None
+# test retry limit on collect side
