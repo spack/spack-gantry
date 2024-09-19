@@ -50,7 +50,7 @@ async def allocation(request: web.Request) -> web.Response:
     that set resource allocations based on historical data.
 
     acceptable spec format:
-    pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
+    pkg_name@pkg_version +variant1+variant2%compiler arch=arch@compiler_version
     NOTE: there must be a space between the package version and the variants
 
     returns:
