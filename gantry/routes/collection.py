@@ -8,6 +8,7 @@ from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.clients.prometheus.util import IncompleteData
 from gantry.models import Job
+from gantry.routes.prediction.prediction import RETRY_COUNT_LIMIT
 
 MB_IN_BYTES = 1_000_000
 BUILD_STAGE_REGEX = r"^stage-\d+$"
@@ -57,7 +58,11 @@ async def handle_pipeline(
 
     for job in failed_jobs:
         # insert every potentially oomed job
+        # if a job has been retried RETRY_COUNT_LIMIT times, oomed will be False
+        # start_pipeline will be called if any of the failed_jobs fit the criteria
+        # the same check is performed on the prediction side, and won't re-bump memory
         oomed = await fetch_job(job, db_conn, gitlab, prometheus, from_pipeline=True)
+
         # fetch_job can return None or (job_id: int, oomed: bool)
         if oomed and oomed[1]:
             retry_pipeline = True
@@ -65,7 +70,7 @@ async def handle_pipeline(
     # once all jobs are collected/discarded, retry the pipeline if needed
     if retry_pipeline:
         await gitlab.start_pipeline(ref)
-        return True
+        return retry_pipeline
 
 
 async def fetch_job(
@@ -132,8 +137,12 @@ async def fetch_job(
         annotations = await prometheus.job.get_annotations(job.gl_id, job.midpoint)
         # check if failed job was OOM killed,
         # return early if it wasn't because we don't care about it anymore
+        # do not retry if the job has already been retried RETRY_COUNT_LIMIT times
         if job.status == "failed":
-            if await prometheus.job.is_oom(annotations["pod"], job.start, job.end):
+            if (
+                await prometheus.job.is_oom(annotations["pod"], job.start, job.end)
+                and annotations["retry_count"] < RETRY_COUNT_LIMIT
+            ):
                 oomed = True
             else:
                 return

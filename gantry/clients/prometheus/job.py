@@ -53,8 +53,8 @@ class PrometheusJobClient:
                     "annotation_metrics_spack_job_spec_compiler_version"
                 ],
                 "stack": annotations["annotation_metrics_spack_ci_stack_name"],
-                "retry_count": annotations.get(
-                    "annotation_metrics_spack_job_retry_count", 0
+                "retry_count": int(
+                    annotations.get("annotation_metrics_spack_job_retry_count", 0)
                 ),
             }
         except KeyError as e:
