@@ -1,8 +1,11 @@
+import copy
+
 import pytest
 
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.routes.collection import fetch_job, fetch_node, handle_pipeline
+from gantry.routes.prediction.prediction import RETRY_COUNT_LIMIT
 from gantry.tests.defs import collection as defs
 
 # mapping of prometheus request shortcuts
@@ -182,6 +185,22 @@ async def test_handle_pipeline(db_conn, gitlab, prometheus):
     # insert a prometheus response indicating the job was not oom killed
     p_list.insert(1, defs.NOT_OOM_KILLED)
     prometheus._query.side_effect = p_list
+    assert (
+        await handle_pipeline(defs.FAILED_PIPELINE, db_conn, gitlab, prometheus) is None
+    )
+
+    # job oom killed, but over retry limit
+    p_list = list(p.values())
+    # modify the annotations
+    # deepcopy so the original annotations are not modified
+    p_list[0] = copy.deepcopy(p_list[0])
+    p_list[0]["data"]["result"][0]["metric"] |= {
+        "annotation_metrics_spack_job_retry_count": str(RETRY_COUNT_LIMIT)
+    }
+    p_list.insert(1, defs.OOM_KILLED)
+    prometheus._query.side_effect = p_list
+    # handle_pipeline should not allow a retry because the retry count is over the limit
+    # however, if another job was oomed but not over the limit, it should be retried
     assert (
         await handle_pipeline(defs.FAILED_PIPELINE, db_conn, gitlab, prometheus) is None
     )
