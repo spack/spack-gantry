@@ -76,13 +76,16 @@ async def test_empty_sample(db_conn):
 # Test validate_payload
 def test_valid_spec():
     """Tests that a valid spec is parsed correctly."""
-    assert parse_alloc_spec("emacs@29.2-test +json+native+treesitter%gcc@12.3.0") == {
+    assert parse_alloc_spec(
+        "emacs@29.2-test +json+native+treesitter arch=x86_64%gcc@12.3.0"
+    ) == {
         "pkg_name": "emacs",
         "pkg_version": "29.2-test",
         "pkg_variants": '{"json": true, "native": true, "treesitter": true}',
         "pkg_variants_dict": {"json": True, "native": True, "treesitter": True},
         "compiler_name": "gcc",
         "compiler_version": "12.3.0",
+        "arch": "x86_64",
     }
 
 
@@ -93,21 +96,52 @@ def test_invalid_specs():
     assert parse_alloc_spec("hi") == {}
 
     # missing package
-    assert parse_alloc_spec("@29.2 +json+native+treesitter%gcc@12.3.0") == {}
+    assert (
+        parse_alloc_spec("@29.2 +json+native+treesitter arch=x86_64%gcc@12.3.0") == {}
+    )
 
     # missing compiler
-    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter") == {}
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter arch=x86_64") == {}
 
     # variants not spaced correctly
-    assert parse_alloc_spec("emacs@29.2+json+native+treesitter%gcc@12.3.0") == {}
+    assert (
+        parse_alloc_spec("emacs@29.2+json+native+treesitter arch=x86_64%gcc@12.3.0")
+        == {}
+    )
 
     # missing compiler version
-    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc@") == {}
-    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter%gcc") == {}
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter arch=x86_64%gcc@") == {}
+    assert parse_alloc_spec("emacs@29.2 +json+native+treesitter arch=x86_64%gcc") == {}
 
     # missing package version
-    assert parse_alloc_spec("emacs@ +json+native+treesitter%gcc@12.3.0") == {}
-    assert parse_alloc_spec("emacs+json+native+treesitter%gcc@12.3.0") == {}
+    assert (
+        parse_alloc_spec("emacs@ +json+native+treesitter arch=x86_64%gcc@12.3.0") == {}
+    )
+    assert parse_alloc_spec("emacs+json+native+treesitter arch=x86_64%gcc@12.3.0") == {}
 
     # invalid variants
-    assert parse_alloc_spec("emacs@29.2 this_is_not_a_thing%gcc@12.3.0") == {}
+    assert (
+        parse_alloc_spec("emacs@29.2 this_is_not_a_thing arch=x86_64%gcc@12.3.0") == {}
+    )
+
+
+async def test_oom(db_conn_inserted):
+    """Tests that the prediction is based on the highest OOM sample."""
+
+    # differentiate the arch so the non-oom tests above don't think they were oom killed
+    build = defs.NORMAL_BUILD.copy()
+    build["arch"] = "oom-arch"
+
+    # test allocation was bumped up by 20%
+    assert await prediction.predict(db_conn_inserted, build) == defs.OOM_PREDICTION
+
+    # simulate job having been retried 3x
+    await db_conn_inserted.execute(
+        "UPDATE jobs SET retry_count=3, mem_limit=76800000000 WHERE id=6786"
+    )
+
+    last_prediction = defs.OOM_PREDICTION.copy()
+    last_prediction["variables"]["GANTRY_RETRY_COUNT"] = 3
+
+    # it shouldn't change
+    assert await prediction.predict(db_conn_inserted, build) == last_prediction

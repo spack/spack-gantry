@@ -1,14 +1,17 @@
+import copy
+
 import pytest
 
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
-from gantry.routes.collection import fetch_job, fetch_node
+from gantry.routes.collection import fetch_job, fetch_node, handle_pipeline
+from gantry.routes.prediction.prediction import RETRY_COUNT_LIMIT
 from gantry.tests.defs import collection as defs
 
 # mapping of prometheus request shortcuts
 # to raw values that would be returned by resp.json()
 
-# note: the ordering of this dict indicated the order of the calls
+# note: the ordering of this dict indicated the order of the calls.
 # if the order in which PrometheusClient._query is called changes,
 # this dict must be updated
 PROMETHEUS_REQS = {
@@ -23,12 +26,17 @@ PROMETHEUS_REQS = {
 
 
 @pytest.fixture
-async def gitlab(mocker):
+async def gitlab(mocker, request):
     """Returns GitlabClient with some default (mocked) behavior"""
 
     # mock the request to the gitlab api
     # default is to return normal log that wouldn't be detected as a ghost job
     mocker.patch.object(GitlabClient, "_request", return_value=defs.VALID_JOB_LOG)
+
+    # Optionally mock the start_pipeline method if needed
+    if getattr(request, "param", {}).get("with_restart", False):
+        mocker.patch.object(GitlabClient, "start_pipeline", return_value=None)
+
     return GitlabClient("", "")
 
 
@@ -126,6 +134,20 @@ async def test_job_node_inserted(db_conn, gitlab, prometheus):
     assert node == defs.INSERTED_NODE
 
 
+async def test_failed_job(db_conn, gitlab, prometheus):
+    """Tests condition check for failed/success in fetch_job."""
+
+    # successful jobs from pipeline should not be inserted
+    await fetch_job(defs.VALID_JOB, db_conn, gitlab, prometheus, from_pipeline=True)
+    async with db_conn.execute("SELECT * FROM jobs") as cursor:
+        assert await cursor.fetchone() is None
+
+    # failed jobs not from the pipeline should not be inserted
+    await fetch_job(defs.FAILED_JOB, db_conn, gitlab, prometheus, from_pipeline=False)
+    async with db_conn.execute("SELECT * FROM jobs") as cursor:
+        assert await cursor.fetchone() is None
+
+
 async def test_node_exists(db_conn, prometheus):
     """Tests that fetch_node returns the existing node id when the node
     is already in the database"""
@@ -143,3 +165,62 @@ async def test_node_exists(db_conn, prometheus):
         await db_conn.executescript(f.read())
 
     assert await fetch_node(db_conn, prometheus, None, None) == 2
+
+
+@pytest.mark.parametrize("gitlab", [{"with_restart": True}], indirect=True)
+async def test_handle_pipeline(db_conn, gitlab, prometheus):
+    """Tests the behavior of handle_pipeline with different pipeline
+    and job statuses."""
+
+    p = PROMETHEUS_REQS.copy()
+
+    # successful pipeline
+    assert (
+        await handle_pipeline(defs.SUCCESSFUL_PIPELINE, db_conn, gitlab, prometheus)
+        is None
+    )
+
+    # pipeline failed and not oomed
+    p_list = list(p.values())
+    # insert a prometheus response indicating the job was not oom killed
+    p_list.insert(1, defs.NOT_OOM_KILLED)
+    prometheus._query.side_effect = p_list
+    assert (
+        await handle_pipeline(defs.FAILED_PIPELINE, db_conn, gitlab, prometheus) is None
+    )
+
+    # job oom killed, but over retry limit
+    p_list = list(p.values())
+    # modify the annotations
+    # deepcopy so the original annotations are not modified
+    p_list[0] = copy.deepcopy(p_list[0])
+    p_list[0]["data"]["result"][0]["metric"] |= {
+        "annotation_metrics_spack_job_retry_count": str(RETRY_COUNT_LIMIT)
+    }
+    p_list.insert(1, defs.OOM_KILLED)
+    prometheus._query.side_effect = p_list
+    # handle_pipeline should not allow a retry because the retry count is over the limit
+    # however, if another job was oomed but not over the limit, it should be retried
+    assert (
+        await handle_pipeline(defs.FAILED_PIPELINE, db_conn, gitlab, prometheus) is None
+    )
+
+    # pipeline failed, one job was oomed the other was not
+    p_list = list(p.values())
+    # after verifying job was not oomed, go onto the next job to insert annotations
+    p_list[1:1] = [defs.NOT_OOM_KILLED, p["job_annotations"], defs.OOM_KILLED]
+    prometheus._query.side_effect = p_list
+    # duplicate the same job so it calls fetch_job twice
+    pipeline = defs.FAILED_PIPELINE.copy()
+    pipeline["builds"].append(pipeline["builds"][0])
+    assert await handle_pipeline(pipeline, db_conn, gitlab, prometheus)
+
+    # verify that OOM job was inserted
+    async with db_conn.execute("SELECT * FROM jobs WHERE id=?", (1,)) as cursor:
+        job = await cursor.fetchone()
+    assert job == defs.INSERTED_OOM_JOB
+
+
+# TODO test if OOM status is correct
+# TODO test start_pipeline response is json not None
+# test retry limit on collect side
