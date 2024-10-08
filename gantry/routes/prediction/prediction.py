@@ -60,6 +60,9 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
             "mem_limit": max([build[3] for build in sample]) * MEM_LIMIT_BUMP,
         }
 
+    if strategy == "ensure_higher":
+        ensure_higher_pred(predictions, spec["pkg_name"])
+
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
         if k.startswith("cpu"):
