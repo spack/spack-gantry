@@ -9,6 +9,9 @@ logger = logging.getLogger(__name__)
 IDEAL_SAMPLE = 5
 DEFAULT_CPU_REQUEST = 1
 DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
+DEFAULT_CPU_LIMIT = 5
+DEFAULT_MEM_LIMIT = 5 * 1_000_000_000
+MEM_LIMIT_BUMP = 1.2
 EXPENSIVE_VARIANTS = {
     "sycl",
     "mpi",
@@ -39,22 +42,18 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
         predictions = {
             "cpu_request": DEFAULT_CPU_REQUEST,
             "mem_request": DEFAULT_MEM_REQUEST,
+            "cpu_limit": DEFAULT_CPU_LIMIT,
+            "mem_limit": DEFAULT_MEM_LIMIT,
         }
     else:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
+        n = len(sample)
         predictions = {
-            # averages the respective metric in the sample
-            "cpu_request": sum([build[0] for build in sample]) / len(sample),
-            "mem_request": sum([build[2] for build in sample]) / len(sample),
+            "cpu_request": sum([build[0] for build in sample]) / n,
+            "mem_request": sum([build[2] for build in sample]) / n,
+            "cpu_limit": sum([build[1] for build in sample]) / n,
+            "mem_limit": max([build[3] for build in sample]) * MEM_LIMIT_BUMP,
         }
-
-    # warn if the prediction is below some thresholds
-    if predictions["cpu_request"] < 0.2:
-        logger.warning(f"Warning: CPU request for {spec} is below 0.2 cores")
-        predictions["cpu_request"] = DEFAULT_CPU_REQUEST
-    if predictions["mem_request"] < 10_000_000:
-        logger.warning(f"Warning: Memory request for {spec} is below 10MB")
-        predictions["mem_request"] = DEFAULT_MEM_REQUEST
 
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
@@ -65,11 +64,10 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
 
     return {
         "variables": {
-            # spack uses these env vars to set the resource requests
-            # set them here at the last minute to avoid using these vars
-            # and clogging up the code
             "KUBERNETES_CPU_REQUEST": predictions["cpu_request"],
             "KUBERNETES_MEMORY_REQUEST": predictions["mem_request"],
+            "KUBERNETES_CPU_LIMIT": predictions["cpu_limit"],
+            "KUBERNETES_MEMORY_LIMIT": predictions["mem_limit"],
         },
     }
 
