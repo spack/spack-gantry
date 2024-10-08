@@ -4,18 +4,18 @@
 from gantry.util.spec import parse_alloc_spec
 
 NORMAL_BUILD = parse_alloc_spec(
-    "py-torch@2.2.1 ~caffe2+cuda+cudnn~debug+distributed+fbgemm+gloo+kineto~magma~metal+mkldnn+mpi~nccl+nnpack+numa+numpy+onnx_ml+openmp+qnnpack~rocm+tensorpipe~test+valgrind+xnnpack build_system=python_pip cuda_arch=80%gcc@11.4.0"
+    "py-torch@2.2.1 ~caffe2+cuda+cudnn~debug+distributed+fbgemm+gloo+kineto~magma~metal+mkldnn+mpi~nccl+nnpack+numa+numpy+onnx_ml+openmp+qnnpack~rocm+tensorpipe~test+valgrind+xnnpack build_system=python_pip cuda_arch=80 arch=x86_64%gcc@11.4.0"
 )
 
 # everything in NORMAL_BUILD["package"]["variants"] except removing build_system=python_pip
 # in order to test the expensive variants filter
 EXPENSIVE_VARIANT_BUILD = parse_alloc_spec(
-    "py-torch@2.2.1 ~caffe2+cuda+cudnn~debug+distributed+fbgemm+gloo+kineto~magma~metal+mkldnn+mpi~nccl+nnpack+numa+numpy+onnx_ml+openmp+qnnpack~rocm+tensorpipe~test+valgrind+xnnpack cuda_arch=80%gcc@11.4.0"
+    "py-torch@2.2.1 ~caffe2+cuda+cudnn~debug+distributed+fbgemm+gloo+kineto~magma~metal+mkldnn+mpi~nccl+nnpack+numa+numpy+onnx_ml+openmp+qnnpack~rocm+tensorpipe~test+valgrind+xnnpack cuda_arch=80 arch=x86_64%gcc@11.4.0"
 )
 
 # no variants should match this, so we expect the default prediction
 BAD_VARIANT_BUILD = parse_alloc_spec(
-    "py-torch@2.2.1 +no~expensive~variants+match%gcc@11.4.0"
+    "py-torch@2.2.1 +no~expensive~variants+match arch=x86_64%gcc@11.4.0"
 )
 
 # calculated by running the baseline prediction algorithm on the sample data in gantry/tests/sql/insert_prediction.sql
