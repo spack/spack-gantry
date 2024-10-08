@@ -1,6 +1,8 @@
 import json
 import re
 
+from gantry.util.const import SPACK_SPEC_PATTERN
+
 
 def spec_variants(spec: str) -> dict:
     """Given a spec's concrete variants, return a dict in name: value format."""
@@ -51,9 +53,7 @@ def parse_alloc_spec(spec: str) -> dict:
     for the client.
     """
 
-    # example: emacs@29.2 +json+native+treesitter arch=x86_64%gcc@12.3.0
-    # this regex accommodates versions made up of any non-space characters
-    spec_pattern = re.compile(r"(.+?)@(\S+)\s+(.+?)\s+arch=(\S+)%([\w-]+)@(\S+)")
+    spec_pattern = re.compile(SPACK_SPEC_PATTERN)
 
     match = spec_pattern.match(spec)
     if not match:
