@@ -44,6 +44,7 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
             "mem_request": DEFAULT_MEM_REQUEST,
             "cpu_limit": DEFAULT_CPU_LIMIT,
             "mem_limit": DEFAULT_MEM_LIMIT,
+            "build_jobs": DEFAULT_CPU_REQUEST,
         }
     else:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
@@ -54,6 +55,8 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
             "cpu_limit": sum([build[1] for build in sample]) / n,
             "mem_limit": max([build[3] for build in sample]) * MEM_LIMIT_BUMP,
         }
+        # build jobs cannot be less than 1
+        predictions["build_jobs"] = max(1, round(predictions["cpu_request"]))
 
     if strategy == "ensure_higher":
         ensure_higher_pred(predictions, spec["pkg_name"])
@@ -71,6 +74,8 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
             "KUBERNETES_MEMORY_REQUEST": predictions["mem_request"],
             "KUBERNETES_CPU_LIMIT": predictions["cpu_limit"],
             "KUBERNETES_MEMORY_LIMIT": predictions["mem_limit"],
+            "SPACK_BUILD_JOBS": predictions["build_jobs"],
+            "CI_JOB_SIZE": "custom",
         },
     }
 
