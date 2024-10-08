@@ -6,7 +6,7 @@ import os
 from aiohttp import web
 
 from gantry.routes.collection import fetch_job
-from gantry.routes.prediction.prediction import predict
+from gantry.routes.prediction import predict
 from gantry.util.spec import parse_alloc_spec
 
 logger = logging.getLogger(__name__)

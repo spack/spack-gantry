@@ -1,6 +1,6 @@
 import pytest
 
-from gantry.routes.prediction import prediction
+from gantry.routes import prediction
 from gantry.tests.defs import prediction as defs
 from gantry.util.spec import parse_alloc_spec
 
