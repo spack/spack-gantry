@@ -50,10 +50,10 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
         n = len(sample)
         predictions = {
-            "cpu_request": sum([build[0] for build in sample]) / n,
-            "mem_request": sum([build[2] for build in sample]) / n,
-            "cpu_limit": sum([build[1] for build in sample]) / n,
-            "mem_limit": max([build[3] for build in sample]) * MEM_LIMIT_BUMP,
+            "cpu_request": sum(build[0] for build in sample) / n,
+            "mem_request": sum(build[2] for build in sample) / n,
+            "cpu_limit": sum(build[1] for build in sample) / n,
+            "mem_limit": max(build[3] for build in sample) * MEM_LIMIT_BUMP,
         }
         # build jobs cannot be less than 1
         predictions["build_jobs"] = max(1, round(predictions["cpu_request"]))
