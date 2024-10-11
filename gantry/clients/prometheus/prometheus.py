@@ -68,17 +68,17 @@ class PrometheusClient:
 
     async def _query(self, url: str) -> list:
         """Query Prometheus with a query string"""
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
+        async with aiohttp.ClientSession() as session:
             # submit cookie with request
             async with session.get(url, cookies=self.cookies) as resp:
                 try:
                     return await resp.json()
                 except aiohttp.ContentTypeError:
-                    logger.error(
-                        """Prometheus query failed with unexpected response.
-                        The cookie may have expired."""
+                    # this will get caught in collection.py and fetch_job won't continue
+                    raise aiohttp.ClientError(
+                        """Prometheus query failed with unexpected
+                        response, cookie may have expired."""
                     )
-                    return {}
 
     def prettify_res(self, response: dict) -> list:
         """Process Prometheus response into a list of dicts with {label: value}"""

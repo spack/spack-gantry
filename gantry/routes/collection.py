@@ -1,6 +1,7 @@
 import logging
 import re
 
+import aiohttp
 import aiosqlite
 
 from gantry.clients import db
@@ -56,20 +57,25 @@ async def fetch_job(
     ):
         return
 
-    # check if the job is a ghost
-    job_log = await gitlab.job_log(job.gl_id)
-    is_ghost = "No need to rebuild" in job_log
-    if is_ghost:
-        logger.warning(f"job {job.gl_id} is a ghost, skipping")
-        return
-
     try:
+        # all code that makes HTTP requests should be in this try block
+
+        # check if the job is a ghost
+        job_log = await gitlab.job_log(job.gl_id)
+        is_ghost = "No need to rebuild" in job_log
+        if is_ghost:
+            logger.warning(f"job {job.gl_id} is a ghost, skipping")
+            return
+
         annotations = await prometheus.job.get_annotations(job.gl_id, job.midpoint)
         resources, node_hostname = await prometheus.job.get_resources(
             annotations["pod"], job.midpoint
         )
         usage = await prometheus.job.get_usage(annotations["pod"], job.start, job.end)
         node_id = await fetch_node(db_conn, prometheus, node_hostname, job.midpoint)
+    except aiohttp.ClientError as e:
+        logger.error(f"Request failed: {e}")
+        return
     except IncompleteData as e:
         # missing data, skip this job
         logger.error(f"{e} job={job.gl_id}")

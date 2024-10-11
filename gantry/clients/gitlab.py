@@ -17,7 +17,7 @@ class GitlabClient:
         returns: the response from Gitlab in the specified format
         """
 
-        async with aiohttp.ClientSession(raise_for_status=True) as session:
+        async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=self.headers) as resp:
                 if response_type == "json":
                     return await resp.json()
