@@ -6,7 +6,7 @@ import os
 from aiohttp import web
 
 from gantry.routes.collection import fetch_job
-from gantry.routes.prediction.prediction import predict
+from gantry.routes.prediction import predict
 from gantry.util.spec import parse_alloc_spec
 
 logger = logging.getLogger(__name__)
@@ -68,7 +68,4 @@ async def allocation(request: web.Request) -> web.Response:
     if not parsed_spec:
         return web.Response(status=400, text="invalid spec")
 
-    # we want to keep predictions >= current levels (with ensure_higher strategy)
-    return web.json_response(
-        await predict(request.app["db"], parsed_spec, strategy="ensure_higher")
-    )
+    return web.json_response(await predict(request.app["db"], parsed_spec))

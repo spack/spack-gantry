@@ -2,7 +2,6 @@ import logging
 
 import aiosqlite
 
-from gantry.routes.prediction.current_mapping import pkg_mappings
 from gantry.util import k8s
 
 logger = logging.getLogger(__name__)
@@ -22,17 +21,13 @@ EXPENSIVE_VARIANTS = {
 }
 
 
-async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) -> dict:
+async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
     """
     Predict the resource usage of a spec
 
     args:
         spec: dict that contains pkg_name, pkg_version, pkg_variants,
         compiler_name, compiler_version
-        strategy (optional): custom prediction behavior
-            "ensure_higher": if the predicted resource usage is
-            below current levels, it will disregard the prediction and
-            keep what would be allocated without Gantry's intervention
     returns:
         dict of predicted resource usage: cpu_request, mem_request
         CPU in millicore, mem in MB
@@ -52,9 +47,6 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
             "cpu_request": sum([build[0] for build in sample]) / len(sample),
             "mem_request": sum([build[2] for build in sample]) / len(sample),
         }
-
-    if strategy == "ensure_higher":
-        ensure_higher_pred(predictions, spec["pkg_name"])
 
     # warn if the prediction is below some thresholds
     if predictions["cpu_request"] < 0.2:
@@ -172,26 +164,3 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
             return sample
 
     return []
-
-
-def ensure_higher_pred(prediction: dict, pkg_name: str):
-    """
-    Ensure that the prediction is higher than the current allocation
-    for the package. This will be removed in the future as we analyze
-    the effectiveness of the prediction model.
-
-    args:
-        prediction: dict of predicted resource usage: cpu_request, mem_request
-        pkg_name: str
-    """
-
-    cur_alloc = pkg_mappings.get(pkg_name)
-
-    if cur_alloc:
-        prediction["cpu_request"] = max(
-            prediction["cpu_request"], cur_alloc["cpu_request"]
-        )
-
-        prediction["mem_request"] = max(
-            prediction["mem_request"], cur_alloc["mem_request"]
-        )
