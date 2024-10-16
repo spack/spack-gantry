@@ -265,4 +265,8 @@ class PrometheusJobClient:
             abs(usage["mem_mean"] - resources["mem_request"]) * cost_per_mem
         )
 
+        # these should be stored if we want to make modifications to the analysis
+        costs["cost_per_cpu"] = cost_per_cpu
+        costs["cost_per_mem"] = cost_per_mem
+
         return costs
