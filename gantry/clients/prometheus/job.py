@@ -248,19 +248,21 @@ class PrometheusJobClient:
         cost_per_cpu = (node_cost * 0.5) / cores
         # cost of each unit of memory (byte)
         cost_per_mem = (node_cost * 0.5) / mem
-        # these utilization ratios determine the extent to which resources
-        # were misallocated for this job
-        cpu_util_ratio = usage["cpu_mean"] / resources["cpu_request"]
-        mem_util_ratio = usage["mem_mean"] / resources["mem_request"]
 
-        # compute separate costs for cpu and memory usage
-        # using requests instead of actual usage because requests are *guaranteed*
-        costs["cpu_cost"] = cost_per_cpu * resources["cpu_request"]
-        costs["mem_cost"] = cost_per_mem * resources["mem_request"]
-        # penalty factors meant to discourage underallocation, which slows down jobs
-        # or overallocation, which prevents jobs from being scheduled on the same node
+        # base cost of a job is the resources it consumed (usage)
+        costs["cpu_cost"] = usage["cpu_mean"] * cost_per_cpu
+        costs["mem_cost"] = usage["mem_mean"] * cost_per_mem
 
-        costs["cpu_penalty"] = max(1 / cpu_util_ratio, cpu_util_ratio)
-        costs["mem_penalty"] = max(1 / mem_util_ratio, mem_util_ratio)
+        # penalty factors are meant to capture misallocation, or the
+        # opportunity cost of the job's behavior on the cluster/node
+        # underallocation delays scheduling of other jobs, increasing pipeline duration
+        # overallocation interferes with the work of other jobs and crowds the node
+        # the penalty is the absolute difference between the job's usage and request
+        costs["cpu_penalty"] = (
+            abs(usage["cpu_mean"] - resources["cpu_request"]) * cost_per_cpu
+        )
+        costs["mem_penalty"] = (
+            abs(usage["mem_mean"] - resources["mem_request"]) * cost_per_mem
+        )
 
         return costs
