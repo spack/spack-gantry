@@ -1,5 +1,7 @@
 import json
 
+import aiosqlite
+
 from gantry.clients.prometheus import util
 from gantry.util.spec import spec_variants
 
@@ -152,3 +154,119 @@ class PrometheusJobClient:
             "mem_min": mem_usage["min"],
             "mem_stddev": mem_usage["stddev"],
         }
+
+    async def get_costs(
+        self,
+        db: aiosqlite.Connection,
+        resources: dict,
+        usage: dict,
+        start: float,
+        end: float,
+        node_id: int,
+    ) -> dict:
+        """
+        Calculates the costs associated with a job.
+
+        Objectives:
+            - we want to measure the cost of a job's submission and execution
+            - measure efficiency of resource usage to discourage wasted cycles
+
+        The cost should be independent of other activity on the node in order
+        to be comparable against other jobs.
+
+        To normalize the cost of resources within instance types, we calculate
+        the cost of each CPU and memory unit in the node during the lifetime
+        of the job.
+
+        Rather than using real usage as a factor in the cost, we use the requests,
+        as they block other jobs from using resources. In this case, jobs will be
+        incentivized to make lower requests, while also factoring in the runtime.
+
+        To account for instances where jobs do not use their requested resources (+/-),
+        we compute a penalty factor that can be used to understand the cost imposed
+        on the rest of the node, or jobs that could have been scheduled on the machine.
+
+        Job cost and the penalties are stored separately for each resource to allow for
+        flexibility. When analyzing these costs, instance type should be factored in,
+        as the cost per job is influence by the cost per resource, which will vary.
+
+        args:
+            db: a database connection
+            resources: job requests and limits
+            usage: job memory and cpu usage
+            start: job start time
+            end: job end time
+            node_id: the node that the job ran on
+
+        returns:
+            dict of: cpu_cost, mem_cost, cpu_penalty, mem_penalty
+        """
+        costs = {}
+        async with db.execute(
+            """
+                select capacity_type, instance_type, zone, cores, mem
+                from nodes where id = ?
+            """,
+            (node_id,),
+        ) as cursor:
+            node = await cursor.fetchone()
+
+        if not node:
+            # this is a temporary condition that will happen during the transition
+            # to collecting
+            raise util.IncompleteData(
+                f"node instance metadata is missing from db. node={node_id}"
+            )
+
+        capacity_type, instance_type, zone, cores, mem = node
+
+        # spot instance prices can change, so we avg the cost over the job's runtime
+        instance_costs = await self.client.query_range(
+            query={
+                "metric": "karpenter_cloudprovider_instance_type_offering_price_estimate",  # noqa: E501
+                "filters": {
+                    "capacity_type": capacity_type,
+                    "instance_type": instance_type,
+                    "zone": zone,
+                },
+            },
+            start=start,
+            end=end,
+        )
+
+        if not instance_costs:
+            raise util.IncompleteData(f"node cost is missing. node={node_id}")
+
+        instance_costs = [float(value) for _, value in instance_costs[0]["values"]]
+        # average hourly cost of the instance over the job's lifetime
+        instance_cost = sum(instance_costs) / len(instance_costs)
+        # compute cost relative to duration of the job (in seconds)
+        node_cost = instance_cost * ((end - start) / 60 / 60)
+
+        # we assume that the cost of the node is split evenly between cpu and memory
+        # cost of each CPU in the node during the lifetime of the job
+        cost_per_cpu = (node_cost * 0.5) / cores
+        # cost of each unit of memory (byte)
+        cost_per_mem = (node_cost * 0.5) / mem
+
+        # base cost of a job is the resources it consumed (usage)
+        costs["cpu_cost"] = usage["cpu_mean"] * cost_per_cpu
+        costs["mem_cost"] = usage["mem_mean"] * cost_per_mem
+
+        # penalty factors are meant to capture misallocation, or the
+        # opportunity cost of the job's behavior on the cluster/node
+        # underallocation delays scheduling of other jobs, increasing pipeline duration
+        # overallocation interferes with the work of other jobs and crowds the node
+        # the penalty is the absolute difference between the job's usage and request
+        costs["cpu_penalty"] = (
+            abs(usage["cpu_mean"] - resources["cpu_request"]) * cost_per_cpu
+        )
+        costs["mem_penalty"] = (
+            abs(usage["mem_mean"] - resources["mem_request"]) * cost_per_mem
+        )
+
+        # these should be stored if we want to make modifications to the analysis
+        costs["cost_per_cpu"] = cost_per_cpu
+        costs["cost_per_mem"] = cost_per_mem
+
+        return costs
