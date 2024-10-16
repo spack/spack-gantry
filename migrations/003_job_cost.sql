@@ -64,6 +64,8 @@ CREATE TABLE IF NOT EXISTS jobs_tmp (
     mem_cost REAL NOT NULL,
     cpu_penalty REAL NOT NULL,
     mem_penalty REAL NOT NULL,
+    cost_per_cpu REAL NOT NULL,
+    cost_per_mem REAL NOT NULL,
     FOREIGN KEY (node)
         REFERENCES nodes (id)
             ON UPDATE CASCADE
@@ -72,7 +74,7 @@ CREATE TABLE IF NOT EXISTS jobs_tmp (
 
 -- copy data from jobs to jobs_tmp
 -- all old columns will have cost values set to 0
-INSERT INTO jobs_tmp select id, pod, node, start, end, gitlab_id, job_status, ref, pkg_name, pkg_version, pkg_variants, compiler_name, compiler_version, arch, stack, build_jobs, cpu_request, cpu_limit, cpu_mean, cpu_median, cpu_max, cpu_min, cpu_stddev, mem_request, mem_limit, mem_mean, mem_median, mem_max, mem_min, mem_stddev, 0, 0, 0, 0 FROM jobs;
+INSERT INTO jobs_tmp select id, pod, node, start, end, gitlab_id, job_status, ref, pkg_name, pkg_version, pkg_variants, compiler_name, compiler_version, arch, stack, build_jobs, cpu_request, cpu_limit, cpu_mean, cpu_median, cpu_max, cpu_min, cpu_stddev, mem_request, mem_limit, mem_mean, mem_median, mem_max, mem_min, mem_stddev, 0, 0, 0, 0, 0, 0 FROM jobs;
 DROP TABLE jobs;
 ALTER TABLE jobs_tmp RENAME TO jobs;
 
