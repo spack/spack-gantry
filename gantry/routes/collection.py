@@ -73,6 +73,10 @@ async def fetch_job(
         )
         usage = await prometheus.job.get_usage(annotations["pod"], job.start, job.end)
         node_id = await fetch_node(db_conn, prometheus, node_hostname, job.midpoint)
+        costs = await prometheus.job.get_costs(
+            db_conn, resources, usage, job.start, job.end, node_id
+        )
+
     except aiohttp.ClientError as e:
         logger.error(f"Request failed: {e}")
         return
@@ -93,6 +97,7 @@ async def fetch_job(
             **annotations,
             **resources,
             **usage,
+            **costs,
         },
     )
 
@@ -139,5 +144,7 @@ async def fetch_node(
             "arch": node_labels["arch"],
             "os": node_labels["os"],
             "instance_type": node_labels["instance_type"],
+            "capacity_type": node_labels["capacity_type"],
+            "zone": node_labels["zone"],
         },
     )
