@@ -76,13 +76,16 @@ async def test_empty_sample(db_conn):
 # Test validate_payload
 def test_valid_spec():
     """Tests that a valid spec is parsed correctly."""
-    assert parse_alloc_spec("emacs@29.2-test +json+native+treesitter%gcc@12.3.0") == {
+    assert parse_alloc_spec(
+        "emacs@29.2-test +json+native+treesitter arch=x86_64%gcc@12.3.0"
+    ) == {
         "pkg_name": "emacs",
         "pkg_version": "29.2-test",
         "pkg_variants": '{"json": true, "native": true, "treesitter": true}',
         "pkg_variants_dict": {"json": True, "native": True, "treesitter": True},
         "compiler_name": "gcc",
         "compiler_version": "12.3.0",
+        "arch": "x86_64",
     }
 
 
