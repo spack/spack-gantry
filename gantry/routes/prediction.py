@@ -58,9 +58,6 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
         # build jobs cannot be less than 1
         predictions["build_jobs"] = max(1, round(predictions["cpu_request"]))
 
-    if strategy == "ensure_higher":
-        ensure_higher_pred(predictions, spec["pkg_name"])
-
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
         if k.startswith("cpu"):
