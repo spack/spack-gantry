@@ -5,7 +5,7 @@ import os
 
 from aiohttp import web
 
-from gantry.routes.collection import fetch_job
+from gantry.routes.collection import fetch_job, handle_pipeline
 from gantry.routes.prediction.prediction import predict
 from gantry.util.spec import parse_alloc_spec
 
@@ -14,7 +14,7 @@ routes = web.RouteTableDef()
 
 
 @routes.post("/v1/collect")
-async def collect_job(request: web.Request) -> web.Response:
+async def collect(request: web.Request) -> web.Response:
     try:
         payload = await request.json()
     except json.decoder.JSONDecodeError:
@@ -23,18 +23,22 @@ async def collect_job(request: web.Request) -> web.Response:
     if request.headers.get("X-Gitlab-Token") != os.environ["GITLAB_WEBHOOK_TOKEN"]:
         return web.Response(status=401, text="invalid token")
 
-    if request.headers.get("X-Gitlab-Event") != "Job Hook":
-        logger.error(f"invalid event type {request.headers.get('X-Gitlab-Event')}")
-        # return 200 so gitlab doesn't disable the webhook -- this is not fatal
-        return web.Response(status=200)
-
-    # will return immediately, but will not block the event loop
-    # allowing fetch_job to run in the background
-    asyncio.ensure_future(
-        fetch_job(
-            payload, request.app["db"], request.app["gitlab"], request.app["prometheus"]
-        )
+    hook_type = request.headers.get("X-Gitlab-Event")
+    job_args = (
+        payload,
+        request.app["db"],
+        request.app["gitlab"],
+        request.app["prometheus"],
     )
+    if hook_type == "Job Hook":
+        # using ensure_future because it doesn't block the event loop
+        # and returns immediately, allowing jobs to run in the background
+        asyncio.ensure_future(fetch_job(*job_args))
+    elif hook_type == "Pipeline Hook":
+        asyncio.ensure_future(handle_pipeline(*job_args))
+    else:
+        # this is not fatal, but we should log it
+        logger.error(f"invalid event type {hook_type}")
 
     return web.Response(status=200)
 
@@ -46,7 +50,7 @@ async def allocation(request: web.Request) -> web.Response:
     that set resource allocations based on historical data.
 
     acceptable spec format:
-    pkg_name@pkg_version +variant1+variant2%compiler@compiler_version
+    pkg_name@pkg_version +variant1+variant2%compiler arch=arch@compiler_version
     NOTE: there must be a space between the package version and the variants
 
     returns:

@@ -20,6 +20,8 @@ EXPENSIVE_VARIANTS = {
     "openmp",
     "hdf5",
 }
+MEM_BUMP_FACTOR = 1.2
+RETRY_COUNT_LIMIT = 3
 
 
 async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) -> dict:
@@ -37,6 +39,11 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         dict of predicted resource usage: cpu_request, mem_request
         CPU in millicore, mem in MB
     """
+
+    # check if the memory limit needs to be increased
+    alloc_oom = await check_oom(db, spec)
+    if alloc_oom:
+        return {"variables": alloc_oom}
 
     sample = await get_sample(db, spec)
     predictions = {}
@@ -64,12 +71,7 @@ async def predict(db: aiosqlite.Connection, spec: dict, strategy: str = None) ->
         logger.warning(f"Warning: Memory request for {spec} is below 10MB")
         predictions["mem_request"] = DEFAULT_MEM_REQUEST
 
-    # convert predictions to k8s friendly format
-    for k, v in predictions.items():
-        if k.startswith("cpu"):
-            predictions[k] = k8s.convert_cores(v)
-        elif k.startswith("mem"):
-            predictions[k] = k8s.convert_bytes(v)
+    predictions = k8s.convert_allocations(predictions)
 
     return {
         "variables": {
@@ -123,7 +125,8 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         # within this combo, variants included
         query = f"""
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
-        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
+        WHERE ref='develop' AND job_status='success'
+        AND {' AND '.join(f'{param}=?' for param in filters.keys())}
         ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
         """
 
@@ -163,7 +166,8 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
 
         query = f"""
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
-        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
+        WHERE ref='develop' AND job_status='success'
+        AND {' AND '.join(f'{param}=?' for param in filters.keys())}
         AND {' AND '.join(exp_variant_conditions)}
         ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
         """
@@ -195,3 +199,59 @@ def ensure_higher_pred(prediction: dict, pkg_name: str):
         prediction["mem_request"] = max(
             prediction["mem_request"], cur_alloc["mem_request"]
         )
+
+
+async def check_oom(db: aiosqlite.Connection, spec: dict) -> dict:
+    """
+    Check if the spec's last build was OOM killed and bump
+    the prediction if necessary.
+
+    args:
+        spec: see predict
+    returns:
+        dict of variables for the k8s job
+    """
+
+    # look for an exact match of the spec that has been OOM killed
+    query = """
+    SELECT cpu_mean, cpu_max, mem_mean, mem_limit, retry_count FROM jobs
+    WHERE pkg_name=? AND pkg_version=? AND pkg_variants=?
+    AND compiler_name=? AND compiler_version=? AND arch=? AND oomed=1
+    ORDER BY end DESC LIMIT 1
+    """
+
+    async with db.execute(
+        query,
+        (
+            spec["pkg_name"],
+            spec["pkg_version"],
+            spec["pkg_variants"],
+            spec["compiler_name"],
+            spec["compiler_version"],
+            spec["arch"],
+        ),
+    ) as cursor:
+        res = await cursor.fetchall()
+
+    if not res:
+        return {}
+
+    # use the last build's resource usage as a baseline
+    # using mem_limit instead of max to ensure it's increased by the bump factor
+    variables = {
+        "KUBERNETES_CPU_REQUEST": res[0][0],
+        "KUBERNETES_CPU_LIMIT": res[0][1],
+        "KUBERNETES_MEMORY_REQUEST": res[0][2],
+        "KUBERNETES_MEMORY_LIMIT": res[0][3],
+        "GANTRY_RETRY_COUNT": res[0][4],
+    }
+
+    if variables["GANTRY_RETRY_COUNT"] < RETRY_COUNT_LIMIT:
+        # only bump the memory if it's been a certain amount
+        # the build will likely fail but this is to prevent infinite retries
+        variables["KUBERNETES_MEMORY_LIMIT"] = (
+            variables["KUBERNETES_MEMORY_LIMIT"] * MEM_BUMP_FACTOR
+        )
+        variables["GANTRY_RETRY_COUNT"] += 1
+
+    return k8s.convert_allocations(variables)
