@@ -36,3 +36,15 @@ class GitlabClient:
         """Given a ref, starts a pipeline"""
         url = f"{self.base_url}/pipeline?ref={urllib.parse.quote(ref)}"
         return await self._request("POST", url, "json")
+
+    async def job_oom(self, gl_id: int) -> bool:
+        """Given a job id, returns if the job was OOM killed"""
+
+        url = f"""{self.base_url}/jobs/{gl_id}/artifacts/
+                jobs_scratch_dir/user_data/oom-info"""
+        try:
+            await self._request("get", url, "text")
+            return True
+        # when gitlab can't find an artifact, it returns HTTP 400
+        except aiohttp.client_exceptions.ClientPayloadError:
+            return False

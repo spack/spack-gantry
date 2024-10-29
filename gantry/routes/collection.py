@@ -136,13 +136,14 @@ async def fetch_job(
         if is_ghost:
             logger.warning(f"job {job.gl_id} is a ghost, skipping")
             return
+
         annotations = await prometheus.job.get_annotations(job.gl_id, job.midpoint)
         # check if failed job was OOM killed,
         # return early if it wasn't because we don't care about it anymore
         # do not retry if the job has already been retried RETRY_COUNT_LIMIT times
         if job.status == "failed":
             if (
-                await prometheus.job.is_oom(annotations["pod"], job.start, job.end)
+                await gitlab.job_oom(job.gl_id)
                 and annotations["retry_count"] < RETRY_COUNT_LIMIT
             ):
                 oomed = True
