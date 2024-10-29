@@ -5,7 +5,7 @@ import pytest
 from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.routes.collection import fetch_job, fetch_node, handle_pipeline
-from gantry.routes.prediction.prediction import RETRY_COUNT_LIMIT
+from gantry.routes.prediction import RETRY_COUNT_LIMIT
 from gantry.tests.defs import collection as defs
 
 # mapping of prometheus request shortcuts

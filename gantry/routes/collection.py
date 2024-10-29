@@ -9,7 +9,7 @@ from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.clients.prometheus.util import IncompleteData
 from gantry.models import Job
-from gantry.routes.prediction.prediction import RETRY_COUNT_LIMIT
+from gantry.routes.prediction import RETRY_COUNT_LIMIT
 
 MB_IN_BYTES = 1_000_000
 BUILD_STAGE_REGEX = r"^stage-\d+$"
@@ -123,7 +123,6 @@ async def fetch_job(
         or await db.job_exists(db_conn, job.gl_id)
     ):
         return
-
 
     # track if job was OOM killed and needs to be retried
     oomed = False
