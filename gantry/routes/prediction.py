@@ -118,7 +118,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         # within this combo, variants included
         query = f"""
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
-        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
+        WHERE {' AND '.join(f'{param}=?' for param in filters.keys())}
         ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
         """
 
@@ -158,7 +158,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
 
         query = f"""
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
-        WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
+        WHERE {' AND '.join(f'{param}=?' for param in filters.keys())}
         AND {' AND '.join(exp_variant_conditions)}
         ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
         """
