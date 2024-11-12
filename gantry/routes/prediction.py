@@ -12,7 +12,7 @@ DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
 DEFAULT_CPU_LIMIT = 5
 DEFAULT_MEM_LIMIT = 5 * 1_000_000_000
 MEM_LIMIT_BUMP = 1.2
-MEMORY_LIMIT_FLOOR = 350 * 1_000_000  # 350MB
+MEMORY_LIMIT_FLOOR = 500 * 1_000_000  # 350MB
 EXPENSIVE_VARIANTS = {
     "sycl",
     "mpi",
@@ -58,7 +58,9 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
         }
         # build jobs cannot be less than 1
         predictions["build_jobs"] = max(1, round(predictions["cpu_limit"]))
-        # enforce memory limit floor
+        # setup-env.sh requires more memory to run. the job collection doesn't capture
+        # utilization during this step (and won't be reflected in predictions
+        # so we need to manually set a floor for this limit
         predictions["mem_limit"] = max(predictions["mem_limit"], MEMORY_LIMIT_FLOOR)
 
     # convert predictions to k8s friendly format
