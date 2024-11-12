@@ -12,6 +12,7 @@ DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
 DEFAULT_CPU_LIMIT = 5
 DEFAULT_MEM_LIMIT = 5 * 1_000_000_000
 MEM_LIMIT_BUMP = 1.2
+MEMORY_LIMIT_FLOOR = 3.5 * 1_000_000  # 350MB
 EXPENSIVE_VARIANTS = {
     "sycl",
     "mpi",
@@ -44,7 +45,7 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
             "mem_request": DEFAULT_MEM_REQUEST,
             "cpu_limit": DEFAULT_CPU_LIMIT,
             "mem_limit": DEFAULT_MEM_LIMIT,
-            "build_jobs": DEFAULT_CPU_REQUEST,
+            "build_jobs": DEFAULT_CPU_LIMIT,
         }
     else:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
@@ -56,7 +57,9 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
             "mem_limit": max(build[3] for build in sample) * MEM_LIMIT_BUMP,
         }
         # build jobs cannot be less than 1
-        predictions["build_jobs"] = max(1, round(predictions["cpu_request"]))
+        predictions["build_jobs"] = max(1, round(predictions["cpu_limit"]))
+        # enforce memory limit floor
+        predictions["mem_limit"] = max(predictions["mem_limit"], MEMORY_LIMIT_FLOOR)
 
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
