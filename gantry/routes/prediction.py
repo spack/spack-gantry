@@ -74,7 +74,7 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
         "variables": {
             "KUBERNETES_CPU_REQUEST": predictions["cpu_request"],
             "KUBERNETES_MEMORY_REQUEST": predictions["mem_request"],
-            "KUBERNETES_CPU_LIMIT": predictions["cpu_limit"],
+            "KUBERNETES_CPU_LIMIT": "5",
             "KUBERNETES_MEMORY_LIMIT": predictions["mem_limit"],
             "SPACK_BUILD_JOBS": predictions["build_jobs"],
             "CI_JOB_SIZE": "custom",
