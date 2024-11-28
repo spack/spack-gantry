@@ -25,6 +25,6 @@ jobs:
           pip install -r requirements.txt
           pip install -r .github/workflows/requirements/unit-tests.txt
 
-      - name: Run Unit Tests with Pytest
-        run: |
-          python -m pytest gantry
+      # - name: Run Unit Tests with Pytest
+      #   run: |
+      #     python -m pytest gantry

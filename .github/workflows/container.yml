@@ -28,5 +28,5 @@ jobs:
         with:
           context: .
           platforms: linux/amd64,linux/arm64
-          push: ${{ github.ref == 'refs/heads/develop' }}
+          push: true
           tags: ${{ steps.metadata.outputs.tags }}
