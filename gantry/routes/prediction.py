@@ -2,23 +2,9 @@ import logging
 
 import aiosqlite
 
-from gantry.util import k8s
+from gantry.util import const, k8s
 
 logger = logging.getLogger(__name__)
-
-IDEAL_SAMPLE = 5
-DEFAULT_CPU_REQUEST = 1
-DEFAULT_MEM_REQUEST = 2 * 1_000_000_000  # 2GB in bytes
-EXPENSIVE_VARIANTS = {
-    "sycl",
-    "mpi",
-    "rocm",
-    "cuda",
-    "python",
-    "fortran",
-    "openmp",
-    "hdf5",
-}
 
 
 async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
@@ -37,8 +23,8 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
     predictions = {}
     if not sample:
         predictions = {
-            "cpu_request": DEFAULT_CPU_REQUEST,
-            "mem_request": DEFAULT_MEM_REQUEST,
+            "cpu_request": const.DEFAULT_CPU_REQUEST,
+            "mem_request": const.DEFAULT_MEM_REQUEST,
         }
     else:
         # mapping of sample: [0] cpu_mean, [1] cpu_max, [2] mem_mean, [3] mem_max
@@ -51,10 +37,10 @@ async def predict(db: aiosqlite.Connection, spec: dict) -> dict:
     # warn if the prediction is below some thresholds
     if predictions["cpu_request"] < 0.2:
         logger.warning(f"Warning: CPU request for {spec} is below 0.2 cores")
-        predictions["cpu_request"] = DEFAULT_CPU_REQUEST
+        predictions["cpu_request"] = const.DEFAULT_CPU_REQUEST
     if predictions["mem_request"] < 10_000_000:
         logger.warning(f"Warning: Memory request for {spec} is below 10MB")
-        predictions["mem_request"] = DEFAULT_MEM_REQUEST
+        predictions["mem_request"] = const.DEFAULT_MEM_REQUEST
 
     # convert predictions to k8s friendly format
     for k, v in predictions.items():
@@ -104,7 +90,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         async with db.execute(query, list(filters.values()) + extra_params) as cursor:
             sample = await cursor.fetchall()
             # we can accept the sample if it's 1 shorter
-            if len(sample) >= IDEAL_SAMPLE - 1:
+            if len(sample) >= const.TRAINING_SAMPLES - 1:
                 return sample
         return []
 
@@ -116,7 +102,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         query = f"""
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
         WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
-        ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
+        ORDER BY end DESC LIMIT {const.TRAINING_SAMPLES}
         """
 
         if sample := await select_sample(query, filters):
@@ -132,7 +118,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
 
         # iterate through all the expensive variants and create a set of conditions
         # for the select query
-        for var in EXPENSIVE_VARIANTS:
+        for var in const.EXPENSIVE_VARIANTS:
             variant_value = spec["pkg_variants_dict"].get(var)
 
             # check against specs where hdf5=none like quantum-espresso
@@ -157,7 +143,7 @@ async def get_sample(db: aiosqlite.Connection, spec: dict) -> list:
         SELECT cpu_mean, cpu_max, mem_mean, mem_max FROM jobs
         WHERE ref='develop' AND {' AND '.join(f'{param}=?' for param in filters.keys())}
         AND {' AND '.join(exp_variant_conditions)}
-        ORDER BY end DESC LIMIT {IDEAL_SAMPLE}
+        ORDER BY end DESC LIMIT {const.TRAINING_SAMPLES}
         """
 
         if sample := await select_sample(query, filters, exp_variant_values):

@@ -9,9 +9,7 @@ from gantry.clients.gitlab import GitlabClient
 from gantry.clients.prometheus import PrometheusClient
 from gantry.clients.prometheus.util import IncompleteData
 from gantry.models import Job
-
-MB_IN_BYTES = 1_000_000
-BUILD_STAGE_REGEX = r"^stage-\d+$"
+from gantry.util import const
 
 logger = logging.getLogger(__name__)
 
@@ -47,7 +45,7 @@ async def fetch_job(
     if (
         job.status != "success"
         # if the stage is not stage-NUMBER, it's not a build job
-        or not re.match(BUILD_STAGE_REGEX, payload["build_stage"])
+        or not re.match(const.BUILD_STAGE_REGEX, payload["build_stage"])
         # some jobs don't have runners..?
         or payload["runner"] is None
         # uo runners are not in Prometheus
@@ -135,7 +133,7 @@ async def fetch_node(
             "hostname": hostname,
             "cores": node_labels["cores"],
             # convert to bytes to be consistent with other resource metrics
-            "mem": node_labels["mem"] * MB_IN_BYTES,
+            "mem": node_labels["mem"] * const.MB_IN_BYTES,
             "arch": node_labels["arch"],
             "os": node_labels["os"],
             "instance_type": node_labels["instance_type"],
