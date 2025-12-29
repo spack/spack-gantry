@@ -1,6 +1,6 @@
 aiohttp==3.13.1
 aiosignal==1.4.0
-aiosqlite==0.21.0
+aiosqlite==0.22.1
 attrs==25.3.0
 frozenlist==1.7.0
 idna==3.11
