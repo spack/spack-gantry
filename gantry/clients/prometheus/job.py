@@ -1,5 +1,7 @@
 import json
 
+import aiosqlite
+
 from gantry.clients.prometheus import util
 from gantry.util.spec import spec_variants
 
@@ -152,3 +154,68 @@ class PrometheusJobClient:
             "mem_min": mem_usage["min"],
             "mem_stddev": mem_usage["stddev"],
         }
+
+    async def get_costs(
+        self,
+        db: aiosqlite.Connection,
+        start: float,
+        end: float,
+        node_id: int,
+    ) -> dict:
+        """
+        Calculates the costs associated with a job.
+
+        args:
+            db: a database connection
+            resources: job requests and limits
+            usage: job memory and cpu usage
+            start: job start time
+            end: job end time
+            node_id: the node that the job ran on
+
+        returns:
+            dict of: job_cost_instance (cost of the instance over the job's lifetime)
+        """
+        costs = {}
+        async with db.execute(
+            """
+                select capacity_type, instance_type, zone
+                from nodes where id = ?
+            """,
+            (node_id,),
+        ) as cursor:
+            node = await cursor.fetchone()
+
+        if not node:
+            # this is a temporary condition that will happen during the transition
+            # to collecting
+            raise util.IncompleteData(
+                f"node instance metadata is missing from db. node={node_id}"
+            )
+
+        capacity_type, instance_type, zone = node
+
+        # spot instance prices can change, so we avg the cost over the job's runtime
+        instance_costs = await self.client.query_range(
+            query={
+                "metric": "karpenter_cloudprovider_instance_type_offering_price_estimate",  # noqa: E501
+                "filters": {
+                    "capacity_type": capacity_type,
+                    "instance_type": instance_type,
+                    "zone": zone,
+                },
+            },
+            start=start,
+            end=end,
+        )
+
+        if not instance_costs:
+            raise util.IncompleteData(f"node cost is missing. node={node_id}")
+
+        instance_costs = [float(value) for _, value in instance_costs[0]["values"]]
+        # average hourly cost of the instance over the job's lifetime
+        instance_cost = sum(instance_costs) / len(instance_costs)
+        # compute cost: hourly instance cost * job runtime in hours
+        node_cost = instance_cost * ((end - start) / 3600)  # seconds to hours
+        costs["job_cost_instance"] = node_cost
+        return costs

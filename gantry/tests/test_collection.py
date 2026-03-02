@@ -19,6 +19,7 @@ PROMETHEUS_REQS = {
     "job_cpu_usage": defs.VALID_CPU_USAGE,
     "node_info": defs.VALID_NODE_INFO,
     "node_labels": defs.VALID_NODE_LABELS,
+    "node_cost": defs.VALID_NODE_COST,
 }
 
 
